@@ -6,28 +6,17 @@
     <title>DriverTrack - Dashboard Keluarga</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛵</text></svg>">
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Custom Tailwind Configuration: Green Elegant Theme -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        primary: {
-                            50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981',
-                            600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b',
-                        },
-                        stone: {
-                            50: '#fafaf9', 100: '#f5f5f4', 800: '#292524', 900: '#1c1917',
-                        }
+                        primary: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981', 600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b' },
+                        stone: { 50: '#fafaf9', 100: '#f5f5f4', 800: '#292524', 900: '#1c1917' }
                     },
                     fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
                 }
@@ -49,28 +38,24 @@
             position: absolute; z-index: 20; background: white; border: 1px solid #d6d3d1; 
             border-radius: 6px; padding: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); min-width: 120px; outline: none;
         }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #059669; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
 
-    <!-- Mobile Sidebar Overlay -->
     <div id="sidebarOverlay" class="fixed inset-0 bg-stone-900/50 z-40 hidden lg:hidden transition-opacity opacity-0" onclick="toggleSidebar()"></div>
 
-    <!-- Sidebar -->
     <aside id="sidebar" class="fixed top-0 left-0 z-50 h-screen w-64 bg-stone-900 text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
         <div class="flex items-center justify-between h-16 px-6 border-b border-stone-800">
             <div class="flex items-center gap-2 font-bold text-xl tracking-tight">
-                <i data-lucide="bike" class="w-6 h-6 text-primary-500"></i>
-                <span>DriverTrack</span>
+                <i data-lucide="bike" class="w-6 h-6 text-primary-500"></i><span>DriverTrack</span>
             </div>
-            <button onclick="toggleSidebar()" class="lg:hidden text-stone-400 hover:text-white">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
+            <button onclick="toggleSidebar()" class="lg:hidden text-stone-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto scrollbar-hide">
             <a href="#" class="flex items-center gap-3 px-4 py-3 bg-primary-700 text-white rounded-lg shadow-lg shadow-primary-900/20">
-                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                <span class="font-medium">Dashboard</span>
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="font-medium">Dashboard</span>
             </a>
         </nav>
         <div class="p-4 border-t border-stone-800">
@@ -84,169 +69,133 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="lg:ml-64 min-h-screen flex flex-col">
-        <!-- Sticky Top Navigation -->
         <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200 h-16 flex items-center justify-between px-4 lg:px-8">
             <div class="flex items-center gap-4">
-                <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg">
-                    <i data-lucide="menu" class="w-6 h-6"></i>
-                </button>
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg"><i data-lucide="menu" class="w-6 h-6"></i></button>
                 <div class="flex items-center gap-3">
                     <h1 class="text-lg font-bold text-stone-800 hidden md:block">Overview Bulan Ini</h1>
                     <span class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-full border border-primary-100">
-                        <i data-lucide="map-pin" class="w-3 h-3"></i>
-                        Rumah ↔ Halte Ragunan
+                        <i data-lucide="map-pin" class="w-3 h-3"></i>Rumah ↔ Halte Ragunan
                     </span>
                 </div>
             </div>
             <div class="flex items-center gap-3 md:gap-6">
-                <button onclick="openModal()" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md shadow-primary-600/20">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Tambah Perjalanan</span>
+                <button onclick="openModal()" id="btnAddTrip" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md shadow-primary-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Tambah Perjalanan</span>
                 </button>
             </div>
         </header>
 
-        <!-- Dashboard Content -->
         <div class="flex-1 p-4 lg:p-8 space-y-8 fade-in">
             
-            <!-- KPI Summary Cards (5 Cards) -->
-            <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
-                <!-- Card 1 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-sm font-medium text-stone-500">Total Perjalanan</p>
-                            <h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiTotalTrip">0 Trip</h3>
-                        </div>
-                        <div class="p-2 bg-primary-50 rounded-lg"><i data-lucide="route" class="w-5 h-5 text-primary-600"></i></div>
-                    </div>
-                    <div class="flex items-center text-sm"><span class="text-stone-400">Pagi & Sore digabung</span></div>
-                </div>
+            <!-- Loading Indicator -->
+            <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+                <div class="loader mb-4"></div>
+                <p class="text-stone-500 text-sm">Memuat data dari Google Sheets...</p>
+            </div>
 
-                <!-- Card 2 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow ring-1 ring-primary-100">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-sm font-medium text-stone-500">Total Biaya</p>
-                            <h3 class="text-2xl font-bold text-primary-700 mt-1" id="kpiTotalBiaya">Rp 0</h3>
+            <!-- Main Content (Hidden until loaded) -->
+            <div id="mainContent" class="hidden space-y-8">
+                <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div><p class="text-sm font-medium text-stone-500">Total Perjalanan</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiTotalTrip">0 Trip</h3></div>
+                            <div class="p-2 bg-primary-50 rounded-lg"><i data-lucide="route" class="w-5 h-5 text-primary-600"></i></div>
                         </div>
-                        <div class="p-2 bg-emerald-50 rounded-lg"><i data-lucide="calculator" class="w-5 h-5 text-emerald-600"></i></div>
+                        <div class="flex items-center text-sm"><span class="text-stone-400">Pagi & Sore digabung</span></div>
                     </div>
-                    <div class="flex items-center text-sm"><span class="text-stone-500">Rp 17.500 </span><span class="text-stone-800 font-medium ml-1">per trip</span></div>
-                </div>
 
-                <!-- Card 3 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-sm font-medium text-stone-500">Pagi vs Sore</p>
-                            <div class="flex items-baseline gap-2 mt-1">
-                                <h3 class="text-2xl font-bold text-amber-600" id="kpiPagi">0</h3>
-                                <span class="text-stone-400 text-sm">/</span>
-                                <h3 class="text-2xl font-bold text-indigo-600" id="kpiSore">0</h3>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow ring-1 ring-primary-100">
+                        <div class="flex justify-between items-start mb-4">
+                            <div><p class="text-sm font-medium text-stone-500">Total Biaya</p><h3 class="text-2xl font-bold text-primary-700 mt-1" id="kpiTotalBiaya">Rp 0</h3></div>
+                            <div class="p-2 bg-emerald-50 rounded-lg"><i data-lucide="calculator" class="w-5 h-5 text-emerald-600"></i></div>
+                        </div>
+                        <div class="flex items-center text-sm"><span class="text-stone-500">Rp 17.500 </span><span class="text-stone-800 font-medium ml-1">per trip</span></div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-stone-500">Pagi vs Sore</p>
+                                <div class="flex items-baseline gap-2 mt-1">
+                                    <h3 class="text-2xl font-bold text-amber-600" id="kpiPagi">0</h3>
+                                    <span class="text-stone-400 text-sm">/</span>
+                                    <h3 class="text-2xl font-bold text-indigo-600" id="kpiSore">0</h3>
+                                </div>
                             </div>
+                            <div class="p-2 bg-amber-50 rounded-lg"><i data-lucide="sunrise" class="w-5 h-5 text-amber-600"></i></div>
                         </div>
-                        <div class="p-2 bg-amber-50 rounded-lg"><i data-lucide="sunrise" class="w-5 h-5 text-amber-600"></i></div>
+                        <div class="flex items-center text-sm"><span class="text-amber-600 font-medium">Pagi</span><span class="text-stone-400 mx-2">•</span><span class="text-indigo-600 font-medium">Sore</span></div>
                     </div>
-                    <div class="flex items-center text-sm">
-                        <span class="text-amber-600 font-medium">Pagi</span><span class="text-stone-400 mx-2">•</span><span class="text-indigo-600 font-medium">Sore</span>
-                    </div>
-                </div>
 
-                <!-- Card 4 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-sm font-medium text-stone-500">Rata-rata / Minggu</p>
-                            <h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiAvgWeek">0</h3>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div><p class="text-sm font-medium text-stone-500">Rata-rata / Minggu</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiAvgWeek">0</h3></div>
+                            <div class="p-2 bg-blue-50 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5 text-blue-600"></i></div>
                         </div>
-                        <div class="p-2 bg-blue-50 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5 text-blue-600"></i></div>
+                        <div class="flex items-center text-sm"><span class="text-stone-400">Trip per minggu</span></div>
                     </div>
-                    <div class="flex items-center text-sm"><span class="text-stone-400">Trip per minggu</span></div>
-                </div>
 
-                <!-- Card 5 -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <p class="text-sm font-medium text-stone-500">Hari Kerja</p>
-                            <h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiHariKerja">0 Hari</h3>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div><p class="text-sm font-medium text-stone-500">Hari Kerja</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiHariKerja">0 Hari</h3></div>
+                            <div class="p-2 bg-stone-100 rounded-lg"><i data-lucide="calendar" class="w-5 h-5 text-stone-600"></i></div>
                         </div>
-                        <div class="p-2 bg-stone-100 rounded-lg"><i data-lucide="calendar" class="w-5 h-5 text-stone-600"></i></div>
+                        <div class="flex items-center text-sm"><span class="text-stone-400">Hari driver dipakai</span></div>
                     </div>
-                    <div class="flex items-center text-sm"><span class="text-stone-400">Hari driver dipakai</span></div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Charts Section -->
-            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
-                    <div class="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 class="text-lg font-bold text-stone-800">Tren Perjalanan Mingguan</h3>
-                            <p class="text-sm text-stone-500">Frekuensi antar-jemput per minggu</p>
-                        </div>
+                <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Perjalanan Mingguan</h3><p class="text-sm text-stone-500">Frekuensi antar-jemput per minggu</p></div>
+                        <div class="relative h-72 w-full"><canvas id="weeklyTrendChart"></canvas></div>
                     </div>
-                    <div class="relative h-72 w-full"><canvas id="weeklyTrendChart"></canvas></div>
-                </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
-                    <div class="mb-6">
-                        <h3 class="text-lg font-bold text-stone-800">Distribusi Pagi vs Sore</h3>
-                        <p class="text-sm text-stone-500">Proporsi jenis perjalanan</p>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Distribusi Pagi vs Sore</h3><p class="text-sm text-stone-500">Proporsi jenis perjalanan</p></div>
+                        <div class="relative h-56 w-full flex items-center justify-center"><canvas id="typeDistributionChart"></canvas></div>
+                        <div class="mt-6 space-y-3" id="chartLegend"></div>
                     </div>
-                    <div class="relative h-56 w-full flex items-center justify-center"><canvas id="typeDistributionChart"></canvas></div>
-                    <div class="mt-6 space-y-3" id="chartLegend"></div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Data Table Section -->
-            <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                <div class="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
+                <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                    <div class="p-6 border-b border-stone-100">
                         <h3 class="text-lg font-bold text-stone-800">Riwayat Perjalanan</h3>
                         <p class="text-sm text-stone-500">Klik nama pengguna untuk mengubah</p>
                     </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-stone-600">
-                        <thead class="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
-                            <tr>
-                                <th class="px-6 py-4 font-semibold">Tanggal</th>
-                                <th class="px-6 py-4 font-semibold">Pengguna</th>
-                                <th class="px-6 py-4 font-semibold">Jenis</th>
-                                <th class="px-6 py-4 font-semibold">Rute</th>
-                                <th class="px-6 py-4 font-semibold text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-stone-100" id="tableBody"></tbody>
-                    </table>
-                </div>
-            </section>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-stone-600">
+                            <thead class="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
+                                <tr>
+                                    <th class="px-6 py-4 font-semibold">Tanggal</th>
+                                    <th class="px-6 py-4 font-semibold">Pengguna</th>
+                                    <th class="px-6 py-4 font-semibold">Jenis</th>
+                                    <th class="px-6 py-4 font-semibold">Rute</th>
+                                    <th class="px-6 py-4 font-semibold text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-stone-100" id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
 
-            <footer class="text-center text-sm text-stone-400 py-6">
-                <p>&copy; 2026 DriverTrack Personal Dashboard. Rute: Rumah ↔ Halte Ragunan</p>
-            </footer>
+                <footer class="text-center text-sm text-stone-400 py-6"><p>&copy; 2026 DriverTrack Personal Dashboard. Sinkron via Google Sheets.</p></footer>
+            </div>
         </div>
     </main>
 
-    <!-- Modal Form Input (FIXED: Menggunakan 'hidden' agar tidak memblokir klik) -->
+    <!-- Modal Form Input -->
     <div id="inputModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div id="modalBackdrop" class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal()"></div>
         <div id="modalContent" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 transform scale-95 opacity-0 z-10">
             <div class="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
                 <h3 class="text-lg font-bold text-stone-800">Catat Perjalanan Baru</h3>
-                <button onclick="closeModal()" class="text-stone-400 hover:text-stone-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <button onclick="closeModal()" class="text-stone-400 hover:text-stone-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            
             <form id="tripForm" class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Tanggal</label>
-                    <input type="date" id="inputDate" required class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all">
+                    <input type="date" id="inputDate" required class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -265,31 +214,61 @@
                     </div>
                 </div>
                 <div class="pt-2 flex gap-3">
-                    <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 border border-stone-300 text-stone-700 font-medium rounded-lg hover:bg-stone-50 transition-colors">Batal</button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20">Simpan Data</button>
+                    <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 border border-stone-300 text-stone-700 font-medium rounded-lg hover:bg-stone-50">Batal</button>
+                    <button type="submit" id="btnSubmit" class="flex-1 px-4 py-2.5 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 shadow-md shadow-primary-600/20 flex items-center justify-center gap-2">
+                        <span>Simpan Data</span>
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
     <script>
+        // ==========================================
+        // KONFIGURASI API
+        // ==========================================
+        // GANTI URL DI BAWAH INI DENGAN URL WEB APP ANDA
+        const SHEET_API_URL = 'GANTI_DENGAN_URL_WEB_APP_GOOGLE_SCRIPT_ANDA'; 
+        
         const CONFIG = { biayaPerTrip: 17500 };
-        let trips = JSON.parse(localStorage.getItem('driverTrackData')) || [
-            { id: 1, date: '2026-09-24', user: 'Istri', type: 'Pagi' },
-            { id: 2, date: '2026-09-24', user: 'Saya', type: 'Sore' },
-            { id: 3, date: '2026-09-23', user: 'Saya', type: 'Sore' },
-            { id: 4, date: '2026-09-22', user: 'Istri', type: 'Pagi' },
-        ];
-
+        let trips = [];
         let chartInstanceTrend = null;
         let chartInstanceType = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
             document.getElementById('inputDate').valueAsDate = new Date();
-            renderDashboard();
+            loadDataFromSheet(); // Load data dari Google Sheets saat pertama kali dibuka
         });
+
+        // ==========================================
+        // LOAD DATA DARI GOOGLE SHEETS
+        // ==========================================
+        async function loadDataFromSheet() {
+            try {
+                const response = await fetch(SHEET_API_URL);
+                const data = await response.json();
+                
+                // Mapping data dari sheet ke format yang dibutuhkan
+                trips = data.map(row => ({
+                    id: Number(row.id) || row.id,
+                    date: row.date,
+                    user: row.user,
+                    type: row.type
+                }));
+
+                // Sembunyikan loading, tampilkan konten
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                
+                renderDashboard();
+            } catch (error) {
+                console.error('Gagal memuat data:', error);
+                document.getElementById('loadingState').innerHTML = `
+                    <p class="text-red-500 text-sm">Gagal memuat data. Periksa URL API atau koneksi internet.</p>
+                `;
+            }
+        }
 
         function renderDashboard() {
             updateKPICards();
@@ -343,7 +322,7 @@
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', font: { family: 'Inter' } } } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 2, font: { family: 'Inter' } }, grid: { color: '#f5f5f4' } }, x: { grid: { display: false }, ticks: { font: { family: 'Inter' } } } }
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 2 }, grid: { color: '#f5f5f4' } }, x: { grid: { display: false } } }
                 }
             });
 
@@ -362,8 +341,7 @@
                 options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
             });
 
-            const legendContainer = document.getElementById('chartLegend');
-            legendContainer.innerHTML = `
+            document.getElementById('chartLegend').innerHTML = `
                 <div class="flex items-center justify-between text-sm">
                     <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500"></span><span class="text-stone-600">Pagi (Berangkat)</span></div>
                     <span class="font-semibold text-stone-800">${Math.round((pagiCount / total) * 100)}%</span>
@@ -431,14 +409,19 @@
                 <option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>
             `;
             
-            cell.style.position = 'relative'; // Ensure proper positioning context
+            cell.style.position = 'relative';
             cell.appendChild(select);
             select.focus();
             
-            select.addEventListener('change', function() {
-                trip.user = this.value;
-                saveData();
-                renderDashboard();
+            // Untuk edit user, kita hapus data lama dan tambah data baru (karena GAS tidak support update row langsung dengan mudah)
+            select.addEventListener('change', async function() {
+                const newUser = this.value;
+                // Hapus dari sheet
+                await sendToSheet('delete', trip.id);
+                // Tambah dengan user baru
+                await sendToSheet('add', Date.now(), trip.date, newUser, trip.type);
+                // Refresh data
+                await loadDataFromSheet();
             });
             
             select.addEventListener('blur', function() {
@@ -446,44 +429,74 @@
             });
         }
 
-        document.getElementById('tripForm').addEventListener('submit', function(e) {
+        // ==========================================
+        // FORM SUBMIT & DELETE (KIRIM KE SHEET)
+        // ==========================================
+        document.getElementById('tripForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            const btn = document.getElementById('btnSubmit');
+            const originalText = btn.innerHTML;
+            
+            // Loading state
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader" style="width:16px; height:16px; border-width:2px; border-top-color:white;"></div> Menyimpan...';
+
             const newTrip = {
                 id: Date.now(),
                 date: document.getElementById('inputDate').value,
                 user: document.getElementById('inputUser').value,
                 type: document.getElementById('inputType').value
             };
-            trips.push(newTrip);
-            saveData();
-            renderDashboard();
+
+            await sendToSheet('add', newTrip.id, newTrip.date, newTrip.user, newTrip.type);
+            
+            // Refresh data dari sheet
+            await loadDataFromSheet();
+            
             closeModal();
             this.reset();
             document.getElementById('inputDate').valueAsDate = new Date();
+            
+            // Reset button
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         });
 
-        function deleteTrip(id) {
-            if(confirm('Hapus data perjalanan ini?')) {
-                trips = trips.filter(t => t.id !== id);
-                saveData();
-                renderDashboard();
+        async function deleteTrip(id) {
+            if(!confirm('Hapus data perjalanan ini?')) return;
+            
+            await sendToSheet('delete', id);
+            await loadDataFromSheet();
+        }
+
+        async function sendToSheet(action, id, date, user, type) {
+            const formData = new URLSearchParams();
+            formData.append('action', action);
+            formData.append('id', id);
+            if (date) formData.append('date', date);
+            if (user) formData.append('user', user);
+            if (type) formData.append('type', type);
+
+            try {
+                await fetch(SHEET_API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (error) {
+                console.error('Gagal menyimpan ke sheet:', error);
+                alert('Gagal menyimpan data. Cek koneksi internet.');
             }
         }
 
-        function saveData() {
-            localStorage.setItem('driverTrackData', JSON.stringify(trips));
-        }
-
-        // --- FIXED MODAL LOGIC ---
+        // ==========================================
+        // UI HELPERS
+        // ==========================================
         function openModal() {
             const modal = document.getElementById('inputModal');
             const backdrop = document.getElementById('modalBackdrop');
             const content = document.getElementById('modalContent');
-            
             modal.classList.remove('hidden');
-            // Force reflow for transition to work
             void modal.offsetWidth; 
-            
             backdrop.classList.remove('opacity-0');
             content.classList.remove('scale-95', 'opacity-0');
             content.classList.add('scale-100', 'opacity-100');
@@ -493,21 +506,16 @@
             const modal = document.getElementById('inputModal');
             const backdrop = document.getElementById('modalBackdrop');
             const content = document.getElementById('modalContent');
-            
             backdrop.classList.add('opacity-0');
             content.classList.remove('scale-100', 'opacity-100');
             content.classList.add('scale-95', 'opacity-0');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300); // Match CSS transition duration
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             const isClosed = sidebar.classList.contains('-translate-x-full');
-            
             if (isClosed) {
                 sidebar.classList.remove('-translate-x-full');
                 overlay.classList.remove('hidden');
