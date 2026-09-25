@@ -40,6 +40,32 @@
         }
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #059669; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Custom Select Styling */
+        .period-select-wrapper {
+            position: relative;
+        }
+        .period-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 45px;
+        }
+        .period-select option {
+            padding: 8px;
+        }
+        .period-select option:disabled {
+            background-color: #f5f5f4;
+            color: #78716c;
+            font-weight: 600;
+        }
+        .period-select option[data-active="true"] {
+            background-color: #d1fae5;
+            color: #065f46;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
@@ -75,11 +101,15 @@
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg"><i data-lucide="menu" class="w-6 h-6"></i></button>
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3">
                     <h1 class="text-lg font-bold text-stone-800">Overview</h1>
-                    <select id="periodFilter" onchange="changePeriodFilter()" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-primary-500 outline-none font-medium text-stone-700">
-                        <!-- Diisi oleh JS -->
-                    </select>
-                    <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5">
-                        <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText">Belum Dibayar</span>
+                    <!-- IMPROVED PERIOD FILTER -->
+                    <div class="period-select-wrapper">
+                        <select id="periodFilter" onchange="changePeriodFilter()" class="period-select text-sm border border-stone-300 rounded-lg px-4 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 min-w-[280px] shadow-sm hover:border-primary-400 transition-colors cursor-pointer">
+                            <!-- Diisi oleh JS dengan grouping -->
+                        </select>
+                    </div>
+                    <!-- STATUS PEMBAYARAN -->
+                    <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-3 py-2 rounded-full border transition-colors flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="wallet" class="w-3.5 h-3.5"></i> <span id="paymentStatusText">Belum Dibayar</span>
                     </button>
                 </div>
             </div>
@@ -91,12 +121,14 @@
         </header>
 
         <div class="flex-1 p-4 lg:p-8 space-y-8 fade-in">
+            
             <div id="loadingState" class="flex flex-col items-center justify-center py-20">
                 <div class="loader mb-4"></div>
                 <p class="text-stone-500 text-sm">Memuat data dari Google Sheets...</p>
             </div>
 
             <div id="mainContent" class="hidden space-y-8">
+                <!-- KPI Cards -->
                 <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
@@ -137,6 +169,7 @@
                     </div>
                 </section>
 
+                <!-- Charts -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
                         <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Mingguan (Dalam Periode)</h3></div>
@@ -149,6 +182,7 @@
                     </div>
                 </section>
 
+                <!-- Table -->
                 <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
                     <div class="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
@@ -181,6 +215,7 @@
         </div>
     </main>
 
+    <!-- Modal Form Input -->
     <div id="inputModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div id="modalBackdrop" class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal()"></div>
         <div id="modalContent" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 transform scale-95 opacity-0 z-10">
@@ -224,7 +259,6 @@
     </div>
 
     <script>
-        // URL API SUDAH DIPASANG
         const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyLBxNbYvt7bO81UIx-0l9hGoZxdB9Q7DYluBePe60jI4tlq2ilOK3CmZEkFHRqxpGp/exec'; 
         const CONFIG = { biayaPerTrip: 17500 };
         let trips = [];
@@ -239,40 +273,89 @@
             loadDataFromSheet();
         });
 
-        // LOGIKA PERIODE: 25 ke 25
+        // IMPROVED: Generate more periods with grouping by year
         function populatePeriodFilter() {
             const select = document.getElementById('periodFilter');
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             const today = new Date();
-            const periods = [];
+            const periodsByYear = {};
+            let currentPeriodKey = null;
 
-            for (let i = -2; i <= 2; i++) {
-                // Tanggal 25 bulan target (akhir periode)
+            // Generate 24 bulan ke belakang dan 12 bulan ke depan (total 36 periode)
+            for (let i = -24; i <= 12; i++) {
                 const endMonth = new Date(today.getFullYear(), today.getMonth() + i, 25);
-                // Tanggal 25 bulan sebelumnya (awal periode)
                 const startMonth = new Date(today.getFullYear(), today.getMonth() + i - 1, 25);
 
                 const startDateStr = startMonth.toISOString().split('T')[0];
                 const endDateStr = endMonth.toISOString().split('T')[0];
-                const label = `25 ${months[startMonth.getMonth()]} - 25 ${months[endMonth.getMonth()]} ${endMonth.getFullYear()}`;
+                const year = endMonth.getFullYear();
+                
+                const label = `25 ${monthsShort[startMonth.getMonth()]} - 25 ${monthsShort[endMonth.getMonth()]} ${year}`;
+                const fullLabel = `25 ${months[startMonth.getMonth()]} - 25 ${months[endMonth.getMonth()]} ${year}`;
 
-                periods.push({ label, start: startDateStr, end: endDateStr });
+                if (!periodsByYear[year]) {
+                    periodsByYear[year] = [];
+                }
 
+                const periodObj = { 
+                    label, 
+                    fullLabel, 
+                    start: startDateStr, 
+                    end: endDateStr,
+                    isCurrent: false
+                };
+
+                // Check if this is the current period
                 const todayStr = today.toISOString().split('T')[0];
                 if (todayStr >= startDateStr && todayStr <= endDateStr) {
-                    currentPeriod = { label, start: startDateStr, end: endDateStr };
+                    currentPeriod = periodObj;
+                    periodObj.isCurrent = true;
+                    currentPeriodKey = `${year}-${label}`;
                 }
+
+                periodsByYear[year].push(periodObj);
             }
 
-            if (!currentPeriod) currentPeriod = periods[2];
+            // Fallback jika currentPeriod belum terisi
+            if (!currentPeriod) {
+                const midIndex = Math.floor(Object.values(periodsByYear)[0]?.length / 2) || 0;
+                currentPeriod = Object.values(periodsByYear)[0]?.[midIndex] || null;
+            }
 
-            periods.forEach(p => {
-                const option = document.createElement('option');
-                option.value = JSON.stringify(p);
-                option.textContent = p.label;
-                if (p.label === currentPeriod.label) option.selected = true;
-                select.appendChild(option);
+            // Populate select dengan grouping
+            Object.keys(periodsByYear).sort().reverse().forEach(year => {
+                // Add year group label
+                const groupLabel = document.createElement('option');
+                groupLabel.disabled = true;
+                groupLabel.textContent = `📅 Tahun ${year}`;
+                groupLabel.className = 'font-bold text-stone-600 bg-stone-100';
+                select.appendChild(groupLabel);
+
+                // Add periods for this year
+                periodsByYear[year].forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(p);
+                    option.textContent = p.label;
+                    if (p.isCurrent) {
+                        option.selected = true;
+                        option.dataset.active = 'true';
+                    }
+                    select.appendChild(option);
+                });
+
+                // Add separator
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '──────────────────────────';
+                separator.className = 'text-stone-300';
+                select.appendChild(separator);
             });
+
+            // Remove last separator
+            if (select.lastChild) {
+                select.removeChild(select.lastChild);
+            }
 
             updatePaymentStatusUI();
         }
@@ -291,10 +374,10 @@
             const isPaid = localStorage.getItem(storageKey) === 'true';
             
             if (isPaid) {
-                btn.className = "text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border-emerald-200";
+                btn.className = "text-xs font-semibold px-3 py-2 rounded-full border transition-colors flex items-center gap-1.5 shadow-sm bg-emerald-100 text-emerald-700 border-emerald-200";
                 text.textContent = "Sudah Dibayar";
             } else {
-                btn.className = "text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 bg-amber-100 text-amber-700 border-amber-200";
+                btn.className = "text-xs font-semibold px-3 py-2 rounded-full border transition-colors flex items-center gap-1.5 shadow-sm bg-amber-100 text-amber-700 border-amber-200";
                 text.textContent = "Belum Dibayar";
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -545,12 +628,12 @@
             const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             
-            const text = `Halo Pak, berikut rekap perjalanan periode *${currentPeriod.label}*:%0A%0A` +
+            const text = `Halo Pak, berikut rekap perjalanan periode *${currentPeriod.fullLabel}*:%0A%0A` +
                          `📊 Total Perjalanan: *${totalTrips} Trip*%0A` +
                          `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
                          `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
-                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
+                         `Mohon dicek ya, Pak. Terima kasih! `;
             
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
