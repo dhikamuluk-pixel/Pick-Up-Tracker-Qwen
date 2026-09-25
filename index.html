@@ -75,11 +75,9 @@
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg"><i data-lucide="menu" class="w-6 h-6"></i></button>
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3">
                     <h1 class="text-lg font-bold text-stone-800">Overview</h1>
-                    <!-- FITUR 1: Filter Bulan -->
-                    <select id="monthFilter" onchange="changeMonthFilter()" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-primary-500 outline-none">
+                    <select id="periodFilter" onchange="changePeriodFilter()" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-primary-500 outline-none font-medium text-stone-700">
                         <!-- Diisi oleh JS -->
                     </select>
-                    <!-- FITUR 4: Status Pembayaran -->
                     <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5">
                         <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText">Belum Dibayar</span>
                     </button>
@@ -93,14 +91,12 @@
         </header>
 
         <div class="flex-1 p-4 lg:p-8 space-y-8 fade-in">
-            
             <div id="loadingState" class="flex flex-col items-center justify-center py-20">
                 <div class="loader mb-4"></div>
                 <p class="text-stone-500 text-sm">Memuat data dari Google Sheets...</p>
             </div>
 
             <div id="mainContent" class="hidden space-y-8">
-                <!-- KPI Cards -->
                 <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
@@ -141,10 +137,9 @@
                     </div>
                 </section>
 
-                <!-- Charts -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
-                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Mingguan</h3></div>
+                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Mingguan (Dalam Periode)</h3></div>
                         <div class="relative h-72 w-full"><canvas id="weeklyTrendChart"></canvas></div>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
@@ -154,14 +149,12 @@
                     </div>
                 </section>
 
-                <!-- Table -->
                 <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
                     <div class="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <h3 class="text-lg font-bold text-stone-800">Riwayat Perjalanan</h3>
                             <p class="text-sm text-stone-500">Klik nama pengguna untuk mengubah</p>
                         </div>
-                        <!-- FITUR 2: Tombol WhatsApp -->
                         <button onclick="sendToWhatsApp()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md">
                             <i data-lucide="message-circle" class="w-4 h-4"></i> Kirim Rekap via WhatsApp
                         </button>
@@ -188,7 +181,6 @@
         </div>
     </main>
 
-    <!-- Modal Form Input -->
     <div id="inputModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div id="modalBackdrop" class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal()"></div>
         <div id="modalContent" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 transform scale-95 opacity-0 z-10">
@@ -217,7 +209,6 @@
                         </select>
                     </div>
                 </div>
-                <!-- FITUR 3: Kolom Catatan -->
                 <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Catatan (Opsional)</label>
                     <input type="text" id="inputNotes" placeholder="Misal: Hujan, telat 5 menit, dll" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
@@ -233,41 +224,62 @@
     </div>
 
     <script>
+        // URL API SUDAH DIPASANG
         const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyLBxNbYvt7bO81UIx-0l9hGoZxdB9Q7DYluBePe60jI4tlq2ilOK3CmZEkFHRqxpGp/exec'; 
         const CONFIG = { biayaPerTrip: 17500 };
         let trips = [];
-        let currentFilterMonth = new Date().toISOString().slice(0, 7); // Format: YYYY-MM
+        let currentPeriod = null;
         let chartInstanceTrend = null;
         let chartInstanceType = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
             document.getElementById('inputDate').valueAsDate = new Date();
-            populateMonthFilter();
+            populatePeriodFilter();
             loadDataFromSheet();
         });
 
-        function populateMonthFilter() {
-            const select = document.getElementById('monthFilter');
-            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-            const currentYear = new Date().getFullYear();
-            
-            // Generate opsi dari 6 bulan terakhir sampai bulan depan
-            for (let i = -2; i <= 1; i++) {
-                const d = new Date(currentYear, new Date().getMonth() + i, 1);
-                const val = d.toISOString().slice(0, 7);
-                const label = `${months[d.getMonth()]} ${d.getFullYear()}`;
-                const option = document.createElement('option');
-                option.value = val;
-                option.textContent = label;
-                if (val === currentFilterMonth) option.selected = true;
-                select.appendChild(option);
+        // LOGIKA PERIODE: 25 ke 25
+        function populatePeriodFilter() {
+            const select = document.getElementById('periodFilter');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const today = new Date();
+            const periods = [];
+
+            for (let i = -2; i <= 2; i++) {
+                // Tanggal 25 bulan target (akhir periode)
+                const endMonth = new Date(today.getFullYear(), today.getMonth() + i, 25);
+                // Tanggal 25 bulan sebelumnya (awal periode)
+                const startMonth = new Date(today.getFullYear(), today.getMonth() + i - 1, 25);
+
+                const startDateStr = startMonth.toISOString().split('T')[0];
+                const endDateStr = endMonth.toISOString().split('T')[0];
+                const label = `25 ${months[startMonth.getMonth()]} - 25 ${months[endMonth.getMonth()]} ${endMonth.getFullYear()}`;
+
+                periods.push({ label, start: startDateStr, end: endDateStr });
+
+                const todayStr = today.toISOString().split('T')[0];
+                if (todayStr >= startDateStr && todayStr <= endDateStr) {
+                    currentPeriod = { label, start: startDateStr, end: endDateStr };
+                }
             }
+
+            if (!currentPeriod) currentPeriod = periods[2];
+
+            periods.forEach(p => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(p);
+                option.textContent = p.label;
+                if (p.label === currentPeriod.label) option.selected = true;
+                select.appendChild(option);
+            });
+
             updatePaymentStatusUI();
         }
 
-        function changeMonthFilter() {
-            currentFilterMonth = document.getElementById('monthFilter').value;
+        function changePeriodFilter() {
+            const select = document.getElementById('periodFilter');
+            currentPeriod = JSON.parse(select.value);
             updatePaymentStatusUI();
             renderDashboard();
         }
@@ -275,7 +287,8 @@
         function updatePaymentStatusUI() {
             const btn = document.getElementById('btnPaymentStatus');
             const text = document.getElementById('paymentStatusText');
-            const isPaid = localStorage.getItem('paid_' + currentFilterMonth) === 'true';
+            const storageKey = 'paid_' + currentPeriod.label.replace(/\s+/g, '_');
+            const isPaid = localStorage.getItem(storageKey) === 'true';
             
             if (isPaid) {
                 btn.className = "text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -288,8 +301,9 @@
         }
 
         function togglePaymentStatus() {
-            const current = localStorage.getItem('paid_' + currentFilterMonth) === 'true';
-            localStorage.setItem('paid_' + currentFilterMonth, !current);
+            const storageKey = 'paid_' + currentPeriod.label.replace(/\s+/g, '_');
+            const current = localStorage.getItem(storageKey) === 'true';
+            localStorage.setItem(storageKey, !current);
             updatePaymentStatusUI();
         }
 
@@ -314,8 +328,7 @@
         }
 
         function renderDashboard() {
-            // Filter data berdasarkan bulan yang dipilih
-            const filtered = trips.filter(t => t.date.startsWith(currentFilterMonth));
+            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
             updateKPICards(filtered);
             renderCharts(filtered);
             renderTable(filtered);
@@ -348,8 +361,14 @@
         function renderCharts(filtered) {
             const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
             const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
+            
             filtered.forEach(t => {
-                const weekIndex = Math.min(3, Math.floor(new Date(t.date).getDate() / 7));
+                const date = new Date(t.date);
+                const startDate = new Date(currentPeriod.start);
+                const diffTime = Math.abs(date - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                const weekIndex = Math.min(3, Math.floor(diffDays / 7));
+                
                 if (t.type === 'Pagi') weeklyData.pagi[weekIndex]++;
                 else weeklyData.sore[weekIndex]++;
             });
@@ -399,7 +418,7 @@
             const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
             
             if (sorted.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500">Tidak ada data untuk bulan ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500">Tidak ada data perjalanan pada periode ini.</td></tr>`;
                 return;
             }
 
@@ -514,11 +533,10 @@
             }
         }
 
-        // FITUR 2: Kirim ke WhatsApp
         function sendToWhatsApp() {
-            const filtered = trips.filter(t => t.date.startsWith(currentFilterMonth));
+            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
             if (filtered.length === 0) {
-                alert('Tidak ada data perjalanan untuk bulan ini.');
+                alert('Tidak ada data perjalanan untuk periode ini.');
                 return;
             }
             
@@ -527,11 +545,7 @@
             const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             
-            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-            const [year, month] = currentFilterMonth.split('-');
-            const monthName = `${monthNames[parseInt(month) - 1]} ${year}`;
-            
-            const text = `Halo Pak Asep, berikut rekap perjalanan bulan *${monthName}*:%0A%0A` +
+            const text = `Halo Pak, berikut rekap perjalanan periode *${currentPeriod.label}*:%0A%0A` +
                          `📊 Total Perjalanan: *${totalTrips} Trip*%0A` +
                          `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
