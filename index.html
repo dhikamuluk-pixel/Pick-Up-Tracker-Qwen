@@ -73,51 +73,51 @@
         <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200 h-16 flex items-center justify-between px-4 lg:px-8">
             <div class="flex items-center gap-4">
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg"><i data-lucide="menu" class="w-6 h-6"></i></button>
-                <div class="flex items-center gap-3">
-                    <h1 class="text-lg font-bold text-stone-800 hidden md:block">Overview Bulan Ini</h1>
-                    <span class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-full border border-primary-100">
-                        <i data-lucide="map-pin" class="w-3 h-3"></i>Rumah ↔ Halte Ragunan
-                    </span>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <h1 class="text-lg font-bold text-stone-800">Overview</h1>
+                    <!-- FITUR 1: Filter Bulan -->
+                    <select id="monthFilter" onchange="changeMonthFilter()" class="text-sm border border-stone-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-primary-500 outline-none">
+                        <!-- Diisi oleh JS -->
+                    </select>
+                    <!-- FITUR 4: Status Pembayaran -->
+                    <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5">
+                        <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText">Belum Dibayar</span>
+                    </button>
                 </div>
             </div>
-            <div class="flex items-center gap-3 md:gap-6">
-                <button onclick="openModal()" id="btnAddTrip" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md shadow-primary-600/20">
-                    <i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Tambah Perjalanan</span>
+            <div class="flex items-center gap-3">
+                <button onclick="openModal()" class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md shadow-primary-600/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Tambah</span>
                 </button>
             </div>
         </header>
 
         <div class="flex-1 p-4 lg:p-8 space-y-8 fade-in">
             
-            <!-- Loading Indicator -->
             <div id="loadingState" class="flex flex-col items-center justify-center py-20">
                 <div class="loader mb-4"></div>
                 <p class="text-stone-500 text-sm">Memuat data dari Google Sheets...</p>
             </div>
 
-            <!-- Main Content (Hidden until loaded) -->
             <div id="mainContent" class="hidden space-y-8">
+                <!-- KPI Cards -->
                 <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
-                            <div><p class="text-sm font-medium text-stone-500">Total Perjalanan</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiTotalTrip">0 Trip</h3></div>
+                            <div><p class="text-sm font-medium text-stone-500">Total Perjalanan</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiTotalTrip">0</h3></div>
                             <div class="p-2 bg-primary-50 rounded-lg"><i data-lucide="route" class="w-5 h-5 text-primary-600"></i></div>
                         </div>
-                        <div class="flex items-center text-sm"><span class="text-stone-400">Pagi & Sore digabung</span></div>
                     </div>
-
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow ring-1 ring-primary-100">
                         <div class="flex justify-between items-start mb-4">
                             <div><p class="text-sm font-medium text-stone-500">Total Biaya</p><h3 class="text-2xl font-bold text-primary-700 mt-1" id="kpiTotalBiaya">Rp 0</h3></div>
                             <div class="p-2 bg-emerald-50 rounded-lg"><i data-lucide="calculator" class="w-5 h-5 text-emerald-600"></i></div>
                         </div>
-                        <div class="flex items-center text-sm"><span class="text-stone-500">Rp 17.500 </span><span class="text-stone-800 font-medium ml-1">per trip</span></div>
                     </div>
-
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <p class="text-sm font-medium text-stone-500">Pagi vs Sore</p>
+                                <p class="text-sm font-medium text-stone-500">Pagi / Sore</p>
                                 <div class="flex items-baseline gap-2 mt-1">
                                     <h3 class="text-2xl font-bold text-amber-600" id="kpiPagi">0</h3>
                                     <span class="text-stone-400 text-sm">/</span>
@@ -126,42 +126,45 @@
                             </div>
                             <div class="p-2 bg-amber-50 rounded-lg"><i data-lucide="sunrise" class="w-5 h-5 text-amber-600"></i></div>
                         </div>
-                        <div class="flex items-center text-sm"><span class="text-amber-600 font-medium">Pagi</span><span class="text-stone-400 mx-2">•</span><span class="text-indigo-600 font-medium">Sore</span></div>
                     </div>
-
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
                             <div><p class="text-sm font-medium text-stone-500">Rata-rata / Minggu</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiAvgWeek">0</h3></div>
                             <div class="p-2 bg-blue-50 rounded-lg"><i data-lucide="trending-up" class="w-5 h-5 text-blue-600"></i></div>
                         </div>
-                        <div class="flex items-center text-sm"><span class="text-stone-400">Trip per minggu</span></div>
                     </div>
-
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-4">
-                            <div><p class="text-sm font-medium text-stone-500">Hari Kerja</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiHariKerja">0 Hari</h3></div>
+                            <div><p class="text-sm font-medium text-stone-500">Hari Kerja</p><h3 class="text-2xl font-bold text-stone-800 mt-1" id="kpiHariKerja">0</h3></div>
                             <div class="p-2 bg-stone-100 rounded-lg"><i data-lucide="calendar" class="w-5 h-5 text-stone-600"></i></div>
                         </div>
-                        <div class="flex items-center text-sm"><span class="text-stone-400">Hari driver dipakai</span></div>
                     </div>
                 </section>
 
+                <!-- Charts -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-stone-200">
-                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Perjalanan Mingguan</h3><p class="text-sm text-stone-500">Frekuensi antar-jemput per minggu</p></div>
+                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Tren Mingguan</h3></div>
                         <div class="relative h-72 w-full"><canvas id="weeklyTrendChart"></canvas></div>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
-                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Distribusi Pagi vs Sore</h3><p class="text-sm text-stone-500">Proporsi jenis perjalanan</p></div>
+                        <div class="mb-6"><h3 class="text-lg font-bold text-stone-800">Distribusi</h3></div>
                         <div class="relative h-56 w-full flex items-center justify-center"><canvas id="typeDistributionChart"></canvas></div>
                         <div class="mt-6 space-y-3" id="chartLegend"></div>
                     </div>
                 </section>
 
+                <!-- Table -->
                 <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                    <div class="p-6 border-b border-stone-100">
-                        <h3 class="text-lg font-bold text-stone-800">Riwayat Perjalanan</h3>
-                        <p class="text-sm text-stone-500">Klik nama pengguna untuk mengubah</p>
+                    <div class="p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-stone-800">Riwayat Perjalanan</h3>
+                            <p class="text-sm text-stone-500">Klik nama pengguna untuk mengubah</p>
+                        </div>
+                        <!-- FITUR 2: Tombol WhatsApp -->
+                        <button onclick="sendToWhatsApp()" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md">
+                            <i data-lucide="message-circle" class="w-4 h-4"></i> Kirim Rekap via WhatsApp
+                        </button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left text-stone-600">
@@ -171,6 +174,7 @@
                                     <th class="px-6 py-4 font-semibold">Pengguna</th>
                                     <th class="px-6 py-4 font-semibold">Jenis</th>
                                     <th class="px-6 py-4 font-semibold">Rute</th>
+                                    <th class="px-6 py-4 font-semibold">Catatan</th>
                                     <th class="px-6 py-4 font-semibold text-right">Aksi</th>
                                 </tr>
                             </thead>
@@ -179,7 +183,7 @@
                     </div>
                 </section>
 
-                <footer class="text-center text-sm text-stone-400 py-6"><p>&copy; 2026 DriverTrack Personal Dashboard. Sinkron via Google Sheets.</p></footer>
+                <footer class="text-center text-sm text-stone-400 py-6"><p>&copy; 2026 DriverTrack Personal Dashboard.</p></footer>
             </div>
         </div>
     </main>
@@ -213,6 +217,11 @@
                         </select>
                     </div>
                 </div>
+                <!-- FITUR 3: Kolom Catatan -->
+                <div>
+                    <label class="block text-sm font-medium text-stone-700 mb-1">Catatan (Opsional)</label>
+                    <input type="text" id="inputNotes" placeholder="Misal: Hujan, telat 5 menit, dll" class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none">
+                </div>
                 <div class="pt-2 flex gap-3">
                     <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 border border-stone-300 text-stone-700 font-medium rounded-lg hover:bg-stone-50">Batal</button>
                     <button type="submit" id="btnSubmit" class="flex-1 px-4 py-2.5 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 shadow-md shadow-primary-600/20 flex items-center justify-center gap-2">
@@ -224,73 +233,109 @@
     </div>
 
     <script>
-        // ==========================================
-        // KONFIGURASI API
-        // ==========================================
-        // GANTI URL DI BAWAH INI DENGAN URL WEB APP ANDA
-        const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbyLBxNbYvt7bO81UIx-0l9hGoZxdB9Q7DYluBePe60jI4tlq2ilOK3CmZEkFHRqxpGp/exec'; 
-        
+        const SHEET_API_URL = 'GANTI_DENGAN_URL_WEB_APP_GOOGLE_SCRIPT_ANDA'; 
         const CONFIG = { biayaPerTrip: 17500 };
         let trips = [];
+        let currentFilterMonth = new Date().toISOString().slice(0, 7); // Format: YYYY-MM
         let chartInstanceTrend = null;
         let chartInstanceType = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
             document.getElementById('inputDate').valueAsDate = new Date();
-            loadDataFromSheet(); // Load data dari Google Sheets saat pertama kali dibuka
+            populateMonthFilter();
+            loadDataFromSheet();
         });
 
-        // ==========================================
-        // LOAD DATA DARI GOOGLE SHEETS
-        // ==========================================
+        function populateMonthFilter() {
+            const select = document.getElementById('monthFilter');
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const currentYear = new Date().getFullYear();
+            
+            // Generate opsi dari 6 bulan terakhir sampai bulan depan
+            for (let i = -2; i <= 1; i++) {
+                const d = new Date(currentYear, new Date().getMonth() + i, 1);
+                const val = d.toISOString().slice(0, 7);
+                const label = `${months[d.getMonth()]} ${d.getFullYear()}`;
+                const option = document.createElement('option');
+                option.value = val;
+                option.textContent = label;
+                if (val === currentFilterMonth) option.selected = true;
+                select.appendChild(option);
+            }
+            updatePaymentStatusUI();
+        }
+
+        function changeMonthFilter() {
+            currentFilterMonth = document.getElementById('monthFilter').value;
+            updatePaymentStatusUI();
+            renderDashboard();
+        }
+
+        function updatePaymentStatusUI() {
+            const btn = document.getElementById('btnPaymentStatus');
+            const text = document.getElementById('paymentStatusText');
+            const isPaid = localStorage.getItem('paid_' + currentFilterMonth) === 'true';
+            
+            if (isPaid) {
+                btn.className = "text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border-emerald-200";
+                text.textContent = "Sudah Dibayar";
+            } else {
+                btn.className = "text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 bg-amber-100 text-amber-700 border-amber-200";
+                text.textContent = "Belum Dibayar";
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function togglePaymentStatus() {
+            const current = localStorage.getItem('paid_' + currentFilterMonth) === 'true';
+            localStorage.setItem('paid_' + currentFilterMonth, !current);
+            updatePaymentStatusUI();
+        }
+
         async function loadDataFromSheet() {
             try {
                 const response = await fetch(SHEET_API_URL);
                 const data = await response.json();
-                
-                // Mapping data dari sheet ke format yang dibutuhkan
                 trips = data.map(row => ({
                     id: Number(row.id) || row.id,
                     date: row.date,
                     user: row.user,
-                    type: row.type
+                    type: row.type,
+                    notes: row.notes || ''
                 }));
-
-                // Sembunyikan loading, tampilkan konten
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('mainContent').classList.remove('hidden');
-                
                 renderDashboard();
             } catch (error) {
                 console.error('Gagal memuat data:', error);
-                document.getElementById('loadingState').innerHTML = `
-                    <p class="text-red-500 text-sm">Gagal memuat data. Periksa URL API atau koneksi internet.</p>
-                `;
+                document.getElementById('loadingState').innerHTML = `<p class="text-red-500 text-sm">Gagal memuat data. Periksa URL API.</p>`;
             }
         }
 
         function renderDashboard() {
-            updateKPICards();
-            renderCharts();
-            renderTable();
+            // Filter data berdasarkan bulan yang dipilih
+            const filtered = trips.filter(t => t.date.startsWith(currentFilterMonth));
+            updateKPICards(filtered);
+            renderCharts(filtered);
+            renderTable(filtered);
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        function updateKPICards() {
-            const totalTrips = trips.length;
-            const pagiTrips = trips.filter(t => t.type === 'Pagi').length;
-            const soreTrips = trips.filter(t => t.type === 'Sore').length;
+        function updateKPICards(filtered) {
+            const totalTrips = filtered.length;
+            const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
+            const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             
             const uniqueWeeks = new Set();
-            trips.forEach(t => {
+            filtered.forEach(t => {
                 const date = new Date(t.date);
                 const weekNumber = Math.ceil(date.getDate() / 7);
                 uniqueWeeks.add(`${date.getMonth()}-${weekNumber}`);
             });
             const avgPerWeek = uniqueWeeks.size > 0 ? (totalTrips / uniqueWeeks.size).toFixed(1) : 0;
-            const uniqueDays = new Set(trips.map(t => t.date));
+            const uniqueDays = new Set(filtered.map(t => t.date));
 
             document.getElementById('kpiTotalTrip').textContent = `${totalTrips} Trip`;
             document.getElementById('kpiTotalBiaya').textContent = `Rp ${totalBiaya.toLocaleString('id-ID')}`;
@@ -300,10 +345,10 @@
             document.getElementById('kpiHariKerja').textContent = `${uniqueDays.size} Hari`;
         }
 
-        function renderCharts() {
+        function renderCharts(filtered) {
             const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
             const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
-            trips.forEach(t => {
+            filtered.forEach(t => {
                 const weekIndex = Math.min(3, Math.floor(new Date(t.date).getDate() / 7));
                 if (t.type === 'Pagi') weeklyData.pagi[weekIndex]++;
                 else weeklyData.sore[weekIndex]++;
@@ -319,23 +364,19 @@
                         { label: 'Jemput Sore', data: weeklyData.sore, backgroundColor: '#6366f1', borderRadius: 6, barPercentage: 0.6 }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', font: { family: 'Inter' } } } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 2 }, grid: { color: '#f5f5f4' } }, x: { grid: { display: false } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle' } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 2 }, grid: { color: '#f5f5f4' } }, x: { grid: { display: false } } } }
             });
 
             const ctxType = document.getElementById('typeDistributionChart').getContext('2d');
-            const pagiCount = trips.filter(t => t.type === 'Pagi').length;
-            const soreCount = trips.filter(t => t.type === 'Sore').length;
-            const total = trips.length || 1;
+            const pagiCount = filtered.filter(t => t.type === 'Pagi').length;
+            const soreCount = filtered.filter(t => t.type === 'Sore').length;
+            const total = filtered.length || 1;
 
             if (chartInstanceType) chartInstanceType.destroy();
             chartInstanceType = new Chart(ctxType, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Pagi (Berangkat)', 'Sore (Pulang)'],
+                    labels: ['Pagi', 'Sore'],
                     datasets: [{ data: [pagiCount, soreCount], backgroundColor: ['#f59e0b', '#6366f1'], borderWidth: 0, hoverOffset: 4 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
@@ -343,21 +384,26 @@
 
             document.getElementById('chartLegend').innerHTML = `
                 <div class="flex items-center justify-between text-sm">
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500"></span><span class="text-stone-600">Pagi (Berangkat)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500"></span><span class="text-stone-600">Pagi</span></div>
                     <span class="font-semibold text-stone-800">${Math.round((pagiCount / total) * 100)}%</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-indigo-500"></span><span class="text-stone-600">Sore (Pulang)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-indigo-500"></span><span class="text-stone-600">Sore</span></div>
                     <span class="font-semibold text-stone-800">${Math.round((soreCount / total) * 100)}%</span>
                 </div>
             `;
         }
 
-        function renderTable() {
+        function renderTable(filtered) {
             const tbody = document.getElementById('tableBody');
-            const sortedTrips = [...trips].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
             
-            tbody.innerHTML = sortedTrips.map(t => {
+            if (sorted.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500">Tidak ada data untuk bulan ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = sorted.map(t => {
                 const userInitial = t.user === 'Saya' ? 'S' : 'I';
                 const userBg = t.user === 'Saya' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600';
                 const typeIcon = t.type === 'Pagi' ? 'sunrise' : 'sunset';
@@ -384,6 +430,9 @@
                                 <i data-lucide="arrow-right" class="w-3 h-3"></i> ${routeText}
                             </span>
                         </td>
+                        <td class="px-6 py-4 text-xs text-stone-500 italic max-w-[150px] truncate" title="${t.notes || '-'}">
+                            ${t.notes || '-'}
+                        </td>
                         <td class="px-6 py-4 text-right">
                             <button onclick="deleteTrip(${t.id})" class="text-stone-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50" title="Hapus">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -404,40 +453,23 @@
             
             const select = document.createElement('select');
             select.className = 'user-select';
-            select.innerHTML = `
-                <option value="Saya" ${trip.user === 'Saya' ? 'selected' : ''}>Saya</option>
-                <option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>
-            `;
+            select.innerHTML = `<option value="Saya" ${trip.user === 'Saya' ? 'selected' : ''}>Saya</option><option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>`;
             
             cell.style.position = 'relative';
             cell.appendChild(select);
             select.focus();
             
-            // Untuk edit user, kita hapus data lama dan tambah data baru (karena GAS tidak support update row langsung dengan mudah)
             select.addEventListener('change', async function() {
-                const newUser = this.value;
-                // Hapus dari sheet
                 await sendToSheet('delete', trip.id);
-                // Tambah dengan user baru
-                await sendToSheet('add', Date.now(), trip.date, newUser, trip.type);
-                // Refresh data
+                await sendToSheet('add', Date.now(), trip.date, this.value, trip.type, trip.notes);
                 await loadDataFromSheet();
             });
-            
-            select.addEventListener('blur', function() {
-                setTimeout(() => { if (select.parentNode) select.remove(); }, 100);
-            });
+            select.addEventListener('blur', function() { setTimeout(() => { if (select.parentNode) select.remove(); }, 100); });
         }
 
-        // ==========================================
-        // FORM SUBMIT & DELETE (KIRIM KE SHEET)
-        // ==========================================
         document.getElementById('tripForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const btn = document.getElementById('btnSubmit');
-            const originalText = btn.innerHTML;
-            
-            // Loading state
             btn.disabled = true;
             btn.innerHTML = '<div class="loader" style="width:16px; height:16px; border-width:2px; border-top-color:white;"></div> Menyimpan...';
 
@@ -445,52 +477,70 @@
                 id: Date.now(),
                 date: document.getElementById('inputDate').value,
                 user: document.getElementById('inputUser').value,
-                type: document.getElementById('inputType').value
+                type: document.getElementById('inputType').value,
+                notes: document.getElementById('inputNotes').value
             };
 
-            await sendToSheet('add', newTrip.id, newTrip.date, newTrip.user, newTrip.type);
-            
-            // Refresh data dari sheet
+            await sendToSheet('add', newTrip.id, newTrip.date, newTrip.user, newTrip.type, newTrip.notes);
             await loadDataFromSheet();
             
             closeModal();
             this.reset();
             document.getElementById('inputDate').valueAsDate = new Date();
-            
-            // Reset button
             btn.disabled = false;
-            btn.innerHTML = originalText;
+            btn.innerHTML = '<span>Simpan Data</span>';
         });
 
         async function deleteTrip(id) {
             if(!confirm('Hapus data perjalanan ini?')) return;
-            
             await sendToSheet('delete', id);
             await loadDataFromSheet();
         }
 
-        async function sendToSheet(action, id, date, user, type) {
+        async function sendToSheet(action, id, date, user, type, notes) {
             const formData = new URLSearchParams();
             formData.append('action', action);
             formData.append('id', id);
             if (date) formData.append('date', date);
             if (user) formData.append('user', user);
             if (type) formData.append('type', type);
+            if (notes !== undefined) formData.append('notes', notes);
 
             try {
-                await fetch(SHEET_API_URL, {
-                    method: 'POST',
-                    body: formData
-                });
+                await fetch(SHEET_API_URL, { method: 'POST', body: formData });
             } catch (error) {
-                console.error('Gagal menyimpan ke sheet:', error);
+                console.error('Gagal:', error);
                 alert('Gagal menyimpan data. Cek koneksi internet.');
             }
         }
 
-        // ==========================================
-        // UI HELPERS
-        // ==========================================
+        // FITUR 2: Kirim ke WhatsApp
+        function sendToWhatsApp() {
+            const filtered = trips.filter(t => t.date.startsWith(currentFilterMonth));
+            if (filtered.length === 0) {
+                alert('Tidak ada data perjalanan untuk bulan ini.');
+                return;
+            }
+            
+            const totalTrips = filtered.length;
+            const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
+            const soreTrips = filtered.filter(t => t.type === 'Sore').length;
+            const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
+            
+            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const [year, month] = currentFilterMonth.split('-');
+            const monthName = `${monthNames[parseInt(month) - 1]} ${year}`;
+            
+            const text = `Halo Pak Asep, berikut rekap perjalanan bulan *${monthName}*:%0A%0A` +
+                         `📊 Total Perjalanan: *${totalTrips} Trip*%0A` +
+                         `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
+                         `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
+                         `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
+                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
+            
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
         function openModal() {
             const modal = document.getElementById('inputModal');
             const backdrop = document.getElementById('modalBackdrop');
