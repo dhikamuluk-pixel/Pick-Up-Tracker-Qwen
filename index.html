@@ -72,9 +72,39 @@
         }
         .period-select option:disabled { background-color: #f5f5f4; color: #78716c; font-weight: 600; }
         .period-select option[data-active="true"] { background-color: #d1fae5; color: #065f46; font-weight: 600; }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #toast.success { background: #065f46; color: white; }
+        #toast.error { background: #991b1b; color: white; }
+        #toast.info { background: #1e293b; color: white; }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
 
     <div id="sidebarOverlay" class="fixed inset-0 bg-stone-900/50 z-40 hidden lg:hidden transition-opacity opacity-0" onclick="toggleSidebar()"></div>
 
@@ -269,6 +299,16 @@
         let chartInstanceType = null;
         let isSaving = false;
 
+        // ==========================================
+        // TOAST NOTIFICATION
+        // ==========================================
+        function showToast(message, type = 'info', duration = 2000) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `show ${type}`;
+            setTimeout(() => { toast.className = ''; }, duration);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             try {
                 if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -287,14 +327,12 @@
             const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             const today = new Date();
             const periodsByYear = {};
-
             const startYear = 2026;
-            const startMonthIndex = 8; // September
+            const startMonthIndex = 8;
 
             for (let i = 0; i < 24; i++) {
                 const currentStartMonth = startMonthIndex + i;
                 const currentEndMonth = currentStartMonth + 1;
-                
                 const sYear = startYear + Math.floor(currentStartMonth / 12);
                 const sMonth = currentStartMonth % 12;
                 const eYear = startYear + Math.floor(currentEndMonth / 12);
@@ -302,16 +340,13 @@
 
                 const startMonth = new Date(sYear, sMonth, 25);
                 const endMonth = new Date(eYear, eMonth, 25);
-
                 const startDateStr = startMonth.toISOString().split('T')[0];
                 const endDateStr = endMonth.toISOString().split('T')[0];
                 const year = eYear;
-                
                 const label = `25 ${monthsShort[sMonth]} - 25 ${monthsShort[eMonth]} ${eYear}`;
                 const fullLabel = `25 ${months[sMonth]} - 25 ${months[eMonth]} ${eYear}`;
 
                 if (!periodsByYear[year]) periodsByYear[year] = [];
-
                 const periodObj = { label, fullLabel, start: startDateStr, end: endDateStr, isCurrent: false };
 
                 const todayStr = today.toISOString().split('T')[0];
@@ -319,7 +354,6 @@
                     currentPeriod = periodObj;
                     periodObj.isCurrent = true;
                 }
-
                 periodsByYear[year].push(periodObj);
             }
 
@@ -354,7 +388,6 @@
             if (select.lastChild && select.lastChild.disabled && select.lastChild.textContent.includes('──')) {
                 select.removeChild(select.lastChild);
             }
-
             updatePaymentStatusUI();
         }
 
@@ -389,6 +422,7 @@
             const current = localStorage.getItem(storageKey) === 'true';
             localStorage.setItem(storageKey, !current);
             updatePaymentStatusUI();
+            showToast(current ? 'Ditandai Belum Dibayar' : 'Ditandai Sudah Dibayar', 'success');
         }
 
         async function loadDataFromSheet() {
@@ -424,7 +458,6 @@
             const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
             const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
-            
             const uniqueWeeks = new Set();
             filtered.forEach(t => {
                 const date = new Date(t.date);
@@ -445,7 +478,6 @@
         function renderCharts(filtered) {
             const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
             const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
-            
             filtered.forEach(t => {
                 const date = new Date(t.date);
                 const startDate = new Date(currentPeriod.start);
@@ -497,7 +529,7 @@
         }
 
         // ==========================================
-        // INLINE EDITING
+        // INLINE EDITING - FIXED VERSION
         // ==========================================
         
         function removeExistingInlineEdit() {
@@ -507,13 +539,15 @@
         async function updateTripInSheet(trip) {
             if (isSaving) return;
             isSaving = true;
+            showToast('Menyimpan...', 'info', 99999);
             try {
                 await sendToSheet('delete', trip.id);
                 await sendToSheet('add', trip.id, trip.date, trip.user, trip.type, trip.notes);
                 await loadDataFromSheet();
+                showToast('Tersimpan', 'success');
             } catch (error) {
                 console.error('Gagal update:', error);
-                alert('Gagal menyimpan perubahan. Cek koneksi internet.');
+                showToast('Gagal menyimpan', 'error', 3000);
             } finally {
                 isSaving = false;
             }
@@ -523,20 +557,20 @@
             if (isSaving) return;
             event.stopPropagation();
             removeExistingInlineEdit();
-            
             const cell = event.currentTarget;
             const trip = trips.find(t => t.id === tripId);
-            
             const input = document.createElement('input');
             input.type = 'date';
             input.className = 'inline-input';
             input.value = trip.date;
-            
             cell.innerHTML = '';
             cell.appendChild(input);
             input.focus();
             
+            let saved = false;
             const save = async () => {
+                if (saved) return;
+                saved = true;
                 const newDate = input.value;
                 if (newDate && newDate !== trip.date) {
                     trip.date = newDate;
@@ -546,11 +580,11 @@
                 }
             };
             
+            input.addEventListener('blur', () => setTimeout(save, 150));
             input.addEventListener('change', save);
-            input.addEventListener('blur', save);
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') input.blur();
-                if (e.key === 'Escape') { input.value = trip.date; input.blur(); }
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+                if (e.key === 'Escape') { saved = true; input.value = trip.date; input.blur(); }
             });
         }
 
@@ -558,22 +592,22 @@
             if (isSaving) return;
             event.stopPropagation();
             removeExistingInlineEdit();
-            
             const cell = event.currentTarget;
             const trip = trips.find(t => t.id === tripId);
-            
             const select = document.createElement('select');
             select.className = 'inline-select';
             select.innerHTML = `
                 <option value="Saya" ${trip.user === 'Saya' ? 'selected' : ''}>Saya</option>
                 <option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>
             `;
-            
             cell.innerHTML = '';
             cell.appendChild(select);
             select.focus();
             
+            let saved = false;
             const save = async () => {
+                if (saved) return;
+                saved = true;
                 const newUser = select.value;
                 if (newUser !== trip.user) {
                     trip.user = newUser;
@@ -584,29 +618,29 @@
             };
             
             select.addEventListener('change', save);
-            select.addEventListener('blur', save);
+            select.addEventListener('blur', () => setTimeout(save, 150));
         }
 
         function editType(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
             removeExistingInlineEdit();
-            
             const cell = event.currentTarget;
             const trip = trips.find(t => t.id === tripId);
-            
             const select = document.createElement('select');
             select.className = 'inline-select';
             select.innerHTML = `
                 <option value="Pagi" ${trip.type === 'Pagi' ? 'selected' : ''}>Pagi</option>
                 <option value="Sore" ${trip.type === 'Sore' ? 'selected' : ''}>Sore</option>
             `;
-            
             cell.innerHTML = '';
             cell.appendChild(select);
             select.focus();
             
+            let saved = false;
             const save = async () => {
+                if (saved) return;
+                saved = true;
                 const newType = select.value;
                 if (newType !== trip.type) {
                     trip.type = newType;
@@ -617,9 +651,10 @@
             };
             
             select.addEventListener('change', save);
-            select.addEventListener('blur', save);
+            select.addEventListener('blur', () => setTimeout(save, 150));
         }
 
+        // FIXED: Catatan - Enter sekarang langsung save
         function editNotes(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -637,7 +672,10 @@
             cell.appendChild(textarea);
             textarea.focus();
             
+            let saved = false;
             const save = async () => {
+                if (saved) return;
+                saved = true;
                 const newNotes = textarea.value.trim();
                 if (newNotes !== (trip.notes || '')) {
                     trip.notes = newNotes;
@@ -647,13 +685,24 @@
                 }
             };
             
-            textarea.addEventListener('blur', save);
+            // FIX UTAMA: Enter langsung trigger save (bukan cuma blur)
             textarea.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    textarea.blur();
+                    save(); // LANGSUNG SAVE, tidak lewat blur
                 }
-                if (e.key === 'Escape') { textarea.value = trip.notes || ''; textarea.blur(); }
+                if (e.key === 'Escape') { 
+                    saved = true;
+                    textarea.value = trip.notes || '';
+                    renderDashboard();
+                }
+            });
+            
+            // Blur sebagai fallback (kalau user klik di luar)
+            textarea.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (!saved) save();
+                }, 200);
             });
         }
 
@@ -703,7 +752,7 @@
                         </td>
                         <td class="px-4 lg:px-6 py-3 lg:py-4 relative">
                             <div class="editable-cell px-2 py-1 w-full" onclick="editNotes(event, ${t.id})">
-                                <span class="text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]" title="${t.notes || 'Klik untuk tambah catatan'}">
+                                <span class="text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]" title="${(t.notes || 'Klik untuk tambah catatan').replace(/"/g, '&quot;')}">
                                     ${t.notes || 'Tambah catatan...'}
                                 </span>
                                 <i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 absolute top-1/2 right-2 transform -translate-y-1/2"></i>
@@ -735,6 +784,7 @@
 
             await sendToSheet('add', newTrip.id, newTrip.date, newTrip.user, newTrip.type, newTrip.notes);
             await loadDataFromSheet();
+            showToast('Perjalanan ditambahkan', 'success');
             
             closeModal();
             this.reset();
@@ -747,6 +797,7 @@
             if(!confirm('Hapus data perjalanan ini?')) return;
             await sendToSheet('delete', id);
             await loadDataFromSheet();
+            showToast('Data dihapus', 'success');
         }
 
         async function sendToSheet(action, id, date, user, type, notes) {
@@ -762,29 +813,26 @@
                 await fetch(SHEET_API_URL, { method: 'POST', body: formData });
             } catch (error) {
                 console.error('Gagal:', error);
-                alert('Gagal menyimpan data. Cek koneksi internet.');
+                throw error;
             }
         }
 
         function sendToWhatsApp() {
             const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
             if (filtered.length === 0) {
-                alert('Tidak ada data perjalanan untuk periode ini.');
+                showToast('Tidak ada data untuk periode ini', 'error');
                 return;
             }
-            
             const totalTrips = filtered.length;
             const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
             const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
-            
             const text = `Halo Pak, berikut rekap perjalanan periode *${currentPeriod.fullLabel}*:%0A%0A` +
                          `📊 Total Perjalanan: *${totalTrips} Trip*%0A` +
-                         `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
+                         ` Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
                          `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
-                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
-            
+                         `Mohon dicek ya, Pak. Terima kasih! `;
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
 
