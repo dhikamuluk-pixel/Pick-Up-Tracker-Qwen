@@ -72,12 +72,6 @@
         }
         .period-select option:disabled { background-color: #f5f5f4; color: #78716c; font-weight: 600; }
         .period-select option[data-active="true"] { background-color: #d1fae5; color: #065f46; font-weight: 600; }
-        
-        .saving-indicator {
-            position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
-            width: 12px; height: 12px; border: 2px solid #f3f3f3; border-top: 2px solid #059669;
-            border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
@@ -276,10 +270,15 @@
         let isSaving = false;
 
         document.addEventListener('DOMContentLoaded', function() {
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            document.getElementById('inputDate').valueAsDate = new Date();
-            populatePeriodFilter();
-            loadDataFromSheet();
+            try {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                document.getElementById('inputDate').valueAsDate = new Date();
+                populatePeriodFilter();
+                loadDataFromSheet();
+            } catch (err) {
+                console.error('Init error:', err);
+                document.getElementById('loadingState').innerHTML = `<p class="text-red-500 text-sm">Error: ${err.message}</p>`;
+            }
         });
 
         function populatePeriodFilter() {
@@ -290,11 +289,11 @@
             const periodsByYear = {};
 
             const startYear = 2026;
-            const startMonthIndex = 8;
+            const startMonthIndex = 8; // September
 
             for (let i = 0; i < 24; i++) {
                 const currentStartMonth = startMonthIndex + i;
-                const currentEndMonth = startStartMonth + i + 1;
+                const currentEndMonth = currentStartMonth + 1;
                 
                 const sYear = startYear + Math.floor(currentStartMonth / 12);
                 const sMonth = currentStartMonth % 12;
@@ -498,7 +497,7 @@
         }
 
         // ==========================================
-        // INLINE EDITING FUNCTIONS
+        // INLINE EDITING
         // ==========================================
         
         function removeExistingInlineEdit() {
@@ -509,9 +508,7 @@
             if (isSaving) return;
             isSaving = true;
             try {
-                // Delete old record
                 await sendToSheet('delete', trip.id);
-                // Add new record with updated data
                 await sendToSheet('add', trip.id, trip.date, trip.user, trip.type, trip.notes);
                 await loadDataFromSheet();
             } catch (error) {
@@ -522,7 +519,6 @@
             }
         }
 
-        // Edit Tanggal
         function editDate(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -558,7 +554,6 @@
             });
         }
 
-        // Edit Pengguna
         function editUser(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -592,7 +587,6 @@
             select.addEventListener('blur', save);
         }
 
-        // Edit Jenis (Pagi/Sore)
         function editType(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -626,7 +620,6 @@
             select.addEventListener('blur', save);
         }
 
-        // Edit Catatan
         function editNotes(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -790,7 +783,7 @@
                          `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
                          `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
-                         `Mohon dicek ya, Pak. Terima kasih! `;
+                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
             
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
