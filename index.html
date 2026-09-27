@@ -73,7 +73,6 @@
         .period-select option:disabled { background-color: #f5f5f4; color: #78716c; font-weight: 600; }
         .period-select option[data-active="true"] { background-color: #d1fae5; color: #065f46; font-weight: 600; }
 
-        /* Toast Notification */
         #toast {
             position: fixed;
             bottom: 24px;
@@ -103,7 +102,6 @@
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
 
-    <!-- Toast Notification -->
     <div id="toast"></div>
 
     <div id="sidebarOverlay" class="fixed inset-0 bg-stone-900/50 z-40 hidden lg:hidden transition-opacity opacity-0" onclick="toggleSidebar()"></div>
@@ -299,9 +297,6 @@
         let chartInstanceType = null;
         let isSaving = false;
 
-        // ==========================================
-        // TOAST NOTIFICATION
-        // ==========================================
         function showToast(message, type = 'info', duration = 2000) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -528,22 +523,28 @@
             `;
         }
 
-        // ==========================================
-        // INLINE EDITING - FIXED VERSION
-        // ==========================================
-        
         function removeExistingInlineEdit() {
             document.querySelectorAll('.inline-input, .inline-select, .inline-textarea').forEach(el => el.remove());
         }
 
+        // FIXED: Update trips array langsung di frontend, tidak perlu reload dari sheet
         async function updateTripInSheet(trip) {
             if (isSaving) return;
             isSaving = true;
             showToast('Menyimpan...', 'info', 99999);
             try {
+                // Send to Google Sheets (background sync)
                 await sendToSheet('delete', trip.id);
                 await sendToSheet('add', trip.id, trip.date, trip.user, trip.type, trip.notes);
-                await loadDataFromSheet();
+                
+                // Update trips array langsung di frontend (instant update)
+                const tripIndex = trips.findIndex(t => t.id === trip.id);
+                if (tripIndex !== -1) {
+                    trips[tripIndex] = { ...trip };
+                }
+                
+                // Re-render dashboard dengan data yang sudah di-update
+                renderDashboard();
                 showToast('Tersimpan', 'success');
             } catch (error) {
                 console.error('Gagal update:', error);
@@ -654,7 +655,6 @@
             select.addEventListener('blur', () => setTimeout(save, 150));
         }
 
-        // FIXED: Catatan - Enter sekarang langsung save
         function editNotes(event, tripId) {
             if (isSaving) return;
             event.stopPropagation();
@@ -685,11 +685,10 @@
                 }
             };
             
-            // FIX UTAMA: Enter langsung trigger save (bukan cuma blur)
             textarea.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    save(); // LANGSUNG SAVE, tidak lewat blur
+                    save();
                 }
                 if (e.key === 'Escape') { 
                     saved = true;
@@ -698,7 +697,6 @@
                 }
             });
             
-            // Blur sebagai fallback (kalau user klik di luar)
             textarea.addEventListener('blur', () => {
                 setTimeout(() => {
                     if (!saved) save();
@@ -783,7 +781,10 @@
             };
 
             await sendToSheet('add', newTrip.id, newTrip.date, newTrip.user, newTrip.type, newTrip.notes);
-            await loadDataFromSheet();
+            
+            // Update trips array langsung
+            trips.push(newTrip);
+            renderDashboard();
             showToast('Perjalanan ditambahkan', 'success');
             
             closeModal();
@@ -796,7 +797,10 @@
         async function deleteTrip(id) {
             if(!confirm('Hapus data perjalanan ini?')) return;
             await sendToSheet('delete', id);
-            await loadDataFromSheet();
+            
+            // Update trips array langsung
+            trips = trips.filter(t => t.id !== id);
+            renderDashboard();
             showToast('Data dihapus', 'success');
         }
 
@@ -828,11 +832,11 @@
             const soreTrips = filtered.filter(t => t.type === 'Sore').length;
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             const text = `Halo Pak, berikut rekap perjalanan periode *${currentPeriod.fullLabel}*:%0A%0A` +
-                         `📊 Total Perjalanan: *${totalTrips} Trip*%0A` +
-                         ` Antar Pagi: ${pagiTrips} Trip%0A` +
+                         ` Total Perjalanan: *${totalTrips} Trip*%0A` +
+                         `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
                          `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
-                         `Mohon dicek ya, Pak. Terima kasih! `;
+                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
 
