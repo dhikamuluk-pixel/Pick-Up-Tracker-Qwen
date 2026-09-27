@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DriverTrack - Dashboard Keluarga</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛵</text></svg>">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -32,12 +32,32 @@
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         
-        .user-cell { cursor: pointer; transition: all 0.2s; border-radius: 6px; }
-        .user-cell:hover { background-color: #f5f5f4; }
-        .user-select { 
-            position: absolute; z-index: 20; background: white; border: 1px solid #d6d3d1; 
-            border-radius: 6px; padding: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); min-width: 120px; outline: none;
+        .editable-cell { cursor: pointer; transition: all 0.15s; border-radius: 6px; position: relative; }
+        .editable-cell:hover { background-color: #f5f5f4; }
+        .editable-cell:hover .edit-icon { opacity: 1; }
+        .edit-icon { opacity: 0; transition: opacity 0.15s; }
+        
+        .inline-input { 
+            width: 100%; padding: 4px 8px; border: 1.5px solid #059669; 
+            border-radius: 6px; font-size: 13px; outline: none; 
+            background: white; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
         }
+        .inline-select {
+            width: 100%; padding: 4px 8px; border: 1.5px solid #059669;
+            border-radius: 6px; font-size: 13px; outline: none;
+            background: white; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
+            cursor: pointer;
+        }
+        .inline-textarea {
+            width: 100%; min-height: 60px; padding: 6px 8px; border: 1.5px solid #059669;
+            border-radius: 6px; font-size: 13px; outline: none; resize: vertical;
+            background: white; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .user-cell { cursor: pointer; transition: all 0.15s; border-radius: 6px; }
+        .user-cell:hover { background-color: #f5f5f4; }
+        
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #059669; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
@@ -50,15 +70,13 @@
             background-size: 20px;
             padding-right: 45px;
         }
-        .period-select option:disabled {
-            background-color: #f5f5f4;
-            color: #78716c;
-            font-weight: 600;
-        }
-        .period-select option[data-active="true"] {
-            background-color: #d1fae5;
-            color: #065f46;
-            font-weight: 600;
+        .period-select option:disabled { background-color: #f5f5f4; color: #78716c; font-weight: 600; }
+        .period-select option[data-active="true"] { background-color: #d1fae5; color: #065f46; font-weight: 600; }
+        
+        .saving-indicator {
+            position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+            width: 12px; height: 12px; border: 2px solid #f3f3f3; border-top: 2px solid #059669;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
         }
     </style>
 </head>
@@ -90,19 +108,15 @@
     </aside>
 
     <main class="lg:ml-64 min-h-screen flex flex-col">
-        <!-- IMPROVED HEADER: Lebih clean di mobile -->
         <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 lg:px-8 py-3">
             <div class="flex items-center justify-between gap-3">
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg flex-shrink-0"><i data-lucide="menu" class="w-6 h-6"></i></button>
-                
                 <div class="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
                     <h1 class="text-lg font-bold text-stone-800 flex-shrink-0">Overview</h1>
                     <div class="period-select-wrapper flex-1 max-w-xs">
-                        <select id="periodFilter" onchange="changePeriodFilter()" class="period-select w-full text-sm border border-stone-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 shadow-sm hover:border-primary-400 transition-colors cursor-pointer">
-                        </select>
+                        <select id="periodFilter" onchange="changePeriodFilter()" class="period-select w-full text-sm border border-stone-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 shadow-sm hover:border-primary-400 transition-colors cursor-pointer"></select>
                     </div>
                 </div>
-
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">
                         <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText" class="hidden sm:inline">Belum Dibayar</span><span id="paymentStatusTextMobile" class="sm:hidden">Belum</span>
@@ -121,7 +135,6 @@
             </div>
 
             <div id="mainContent" class="hidden space-y-6">
-                <!-- IMPROVED KPI: 2 kolom di mobile (4 cards), 5 kolom di desktop -->
                 <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-6">
                     <div class="bg-white p-4 lg:p-5 rounded-xl shadow-sm border border-stone-200 hover:shadow-md transition-shadow">
                         <div class="flex justify-between items-start mb-3">
@@ -167,7 +180,6 @@
                     </div>
                 </section>
 
-                <!-- Charts -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white p-4 lg:p-6 rounded-xl shadow-sm border border-stone-200">
                         <div class="mb-4"><h3 class="text-base lg:text-lg font-bold text-stone-800">Tren Mingguan</h3></div>
@@ -180,12 +192,11 @@
                     </div>
                 </section>
 
-                <!-- Table -->
                 <section class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
                     <div class="p-4 lg:p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <h3 class="text-base lg:text-lg font-bold text-stone-800">Riwayat Perjalanan</h3>
-                            <p class="text-xs lg:text-sm text-stone-500">Klik nama pengguna untuk mengubah</p>
+                            <p class="text-xs lg:text-sm text-stone-500">Klik kolom untuk mengedit langsung</p>
                         </div>
                         <button onclick="sendToWhatsApp()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-md w-full sm:w-auto">
                             <i data-lucide="message-circle" class="w-4 h-4"></i> Kirim Rekap via WhatsApp
@@ -213,7 +224,6 @@
         </div>
     </main>
 
-    <!-- Modal Form Input -->
     <div id="inputModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div id="modalBackdrop" class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeModal()"></div>
         <div id="modalContent" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 transform scale-95 opacity-0 z-10">
@@ -263,6 +273,7 @@
         let currentPeriod = null;
         let chartInstanceTrend = null;
         let chartInstanceType = null;
+        let isSaving = false;
 
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -283,11 +294,10 @@
 
             for (let i = 0; i < 24; i++) {
                 const currentStartMonth = startMonthIndex + i;
-                const currentEndMonth = startMonthIndex + i + 1;
+                const currentEndMonth = startStartMonth + i + 1;
                 
                 const sYear = startYear + Math.floor(currentStartMonth / 12);
                 const sMonth = currentStartMonth % 12;
-                
                 const eYear = startYear + Math.floor(currentEndMonth / 12);
                 const eMonth = currentEndMonth % 12;
 
@@ -301,17 +311,9 @@
                 const label = `25 ${monthsShort[sMonth]} - 25 ${monthsShort[eMonth]} ${eYear}`;
                 const fullLabel = `25 ${months[sMonth]} - 25 ${months[eMonth]} ${eYear}`;
 
-                if (!periodsByYear[year]) {
-                    periodsByYear[year] = [];
-                }
+                if (!periodsByYear[year]) periodsByYear[year] = [];
 
-                const periodObj = { 
-                    label, 
-                    fullLabel, 
-                    start: startDateStr, 
-                    end: endDateStr,
-                    isCurrent: false
-                };
+                const periodObj = { label, fullLabel, start: startDateStr, end: endDateStr, isCurrent: false };
 
                 const todayStr = today.toISOString().split('T')[0];
                 if (todayStr >= startDateStr && todayStr <= endDateStr) {
@@ -339,10 +341,7 @@
                     const option = document.createElement('option');
                     option.value = JSON.stringify(p);
                     option.textContent = p.label;
-                    if (p.isCurrent) {
-                        option.selected = true;
-                        option.dataset.active = 'true';
-                    }
+                    if (p.isCurrent) { option.selected = true; option.dataset.active = 'true'; }
                     select.appendChild(option);
                 });
 
@@ -454,7 +453,6 @@
                 const diffTime = Math.abs(date - startDate);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
                 const weekIndex = Math.min(3, Math.floor(diffDays / 7));
-                
                 if (t.type === 'Pagi') weeklyData.pagi[weekIndex]++;
                 else weeklyData.sore[weekIndex]++;
             });
@@ -499,6 +497,173 @@
             `;
         }
 
+        // ==========================================
+        // INLINE EDITING FUNCTIONS
+        // ==========================================
+        
+        function removeExistingInlineEdit() {
+            document.querySelectorAll('.inline-input, .inline-select, .inline-textarea').forEach(el => el.remove());
+        }
+
+        async function updateTripInSheet(trip) {
+            if (isSaving) return;
+            isSaving = true;
+            try {
+                // Delete old record
+                await sendToSheet('delete', trip.id);
+                // Add new record with updated data
+                await sendToSheet('add', trip.id, trip.date, trip.user, trip.type, trip.notes);
+                await loadDataFromSheet();
+            } catch (error) {
+                console.error('Gagal update:', error);
+                alert('Gagal menyimpan perubahan. Cek koneksi internet.');
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        // Edit Tanggal
+        function editDate(event, tripId) {
+            if (isSaving) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            
+            const cell = event.currentTarget;
+            const trip = trips.find(t => t.id === tripId);
+            
+            const input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'inline-input';
+            input.value = trip.date;
+            
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            
+            const save = async () => {
+                const newDate = input.value;
+                if (newDate && newDate !== trip.date) {
+                    trip.date = newDate;
+                    await updateTripInSheet(trip);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            input.addEventListener('change', save);
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') { input.value = trip.date; input.blur(); }
+            });
+        }
+
+        // Edit Pengguna
+        function editUser(event, tripId) {
+            if (isSaving) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            
+            const cell = event.currentTarget;
+            const trip = trips.find(t => t.id === tripId);
+            
+            const select = document.createElement('select');
+            select.className = 'inline-select';
+            select.innerHTML = `
+                <option value="Saya" ${trip.user === 'Saya' ? 'selected' : ''}>Saya</option>
+                <option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>
+            `;
+            
+            cell.innerHTML = '';
+            cell.appendChild(select);
+            select.focus();
+            
+            const save = async () => {
+                const newUser = select.value;
+                if (newUser !== trip.user) {
+                    trip.user = newUser;
+                    await updateTripInSheet(trip);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            select.addEventListener('change', save);
+            select.addEventListener('blur', save);
+        }
+
+        // Edit Jenis (Pagi/Sore)
+        function editType(event, tripId) {
+            if (isSaving) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            
+            const cell = event.currentTarget;
+            const trip = trips.find(t => t.id === tripId);
+            
+            const select = document.createElement('select');
+            select.className = 'inline-select';
+            select.innerHTML = `
+                <option value="Pagi" ${trip.type === 'Pagi' ? 'selected' : ''}>Pagi</option>
+                <option value="Sore" ${trip.type === 'Sore' ? 'selected' : ''}>Sore</option>
+            `;
+            
+            cell.innerHTML = '';
+            cell.appendChild(select);
+            select.focus();
+            
+            const save = async () => {
+                const newType = select.value;
+                if (newType !== trip.type) {
+                    trip.type = newType;
+                    await updateTripInSheet(trip);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            select.addEventListener('change', save);
+            select.addEventListener('blur', save);
+        }
+
+        // Edit Catatan
+        function editNotes(event, tripId) {
+            if (isSaving) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            
+            const cell = event.currentTarget;
+            const trip = trips.find(t => t.id === tripId);
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'inline-textarea';
+            textarea.placeholder = 'Tulis catatan...';
+            textarea.value = trip.notes || '';
+            
+            cell.innerHTML = '';
+            cell.appendChild(textarea);
+            textarea.focus();
+            
+            const save = async () => {
+                const newNotes = textarea.value.trim();
+                if (newNotes !== (trip.notes || '')) {
+                    trip.notes = newNotes;
+                    await updateTripInSheet(trip);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            textarea.addEventListener('blur', save);
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    textarea.blur();
+                }
+                if (e.key === 'Escape') { textarea.value = trip.notes || ''; textarea.blur(); }
+            });
+        }
+
         function renderTable(filtered) {
             const tbody = document.getElementById('tableBody');
             const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -517,26 +682,39 @@
 
                 return `
                     <tr class="hover:bg-stone-50 transition-colors">
-                        <td class="px-4 lg:px-6 py-3 lg:py-4 font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap">${formatDate(t.date)}</td>
                         <td class="px-4 lg:px-6 py-3 lg:py-4 relative">
-                            <div class="user-cell flex items-center gap-2 px-2 py-1 w-fit" onclick="showUserEdit(event, ${t.id})">
-                                <div class="w-6 h-6 rounded-full ${userBg} flex items-center justify-center text-xs font-bold flex-shrink-0">${userInitial}</div>
-                                <span class="font-medium text-stone-700 text-xs lg:text-sm">${t.user}</span>
-                                <i data-lucide="edit-3" class="w-3 h-3 text-stone-400 ml-1 flex-shrink-0"></i>
+                            <div class="editable-cell flex items-center gap-1.5 px-2 py-1 w-fit" onclick="editDate(event, ${t.id})">
+                                <span class="font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap">${formatDate(t.date)}</span>
+                                <i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>
                             </div>
                         </td>
-                        <td class="px-4 lg:px-6 py-3 lg:py-4">
-                            <span class="flex items-center gap-1.5 ${typeColor} px-2 py-1 rounded-full text-xs font-medium w-fit whitespace-nowrap">
-                                <i data-lucide="${typeIcon}" class="w-3 h-3"></i> ${t.type}
-                            </span>
+                        <td class="px-4 lg:px-6 py-3 lg:py-4 relative">
+                            <div class="user-cell flex items-center gap-2 px-2 py-1 w-fit" onclick="editUser(event, ${t.id})">
+                                <div class="w-6 h-6 rounded-full ${userBg} flex items-center justify-center text-xs font-bold flex-shrink-0">${userInitial}</div>
+                                <span class="font-medium text-stone-700 text-xs lg:text-sm">${t.user}</span>
+                                <i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>
+                            </div>
+                        </td>
+                        <td class="px-4 lg:px-6 py-3 lg:py-4 relative">
+                            <div class="editable-cell flex items-center gap-1.5 px-2 py-1 w-fit" onclick="editType(event, ${t.id})">
+                                <span class="flex items-center gap-1.5 ${typeColor} px-2 py-1 rounded-full text-xs font-medium w-fit whitespace-nowrap">
+                                    <i data-lucide="${typeIcon}" class="w-3 h-3"></i> ${t.type}
+                                </span>
+                                <i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>
+                            </div>
                         </td>
                         <td class="px-4 lg:px-6 py-3 lg:py-4">
                             <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200 whitespace-nowrap">
                                 <i data-lucide="arrow-right" class="w-3 h-3"></i> ${routeText}
                             </span>
                         </td>
-                        <td class="px-4 lg:px-6 py-3 lg:py-4 text-xs text-stone-500 italic max-w-[120px] lg:max-w-[150px] truncate" title="${t.notes || '-'}">
-                            ${t.notes || '-'}
+                        <td class="px-4 lg:px-6 py-3 lg:py-4 relative">
+                            <div class="editable-cell px-2 py-1 w-full" onclick="editNotes(event, ${t.id})">
+                                <span class="text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]" title="${t.notes || 'Klik untuk tambah catatan'}">
+                                    ${t.notes || 'Tambah catatan...'}
+                                </span>
+                                <i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 absolute top-1/2 right-2 transform -translate-y-1/2"></i>
+                            </div>
                         </td>
                         <td class="px-4 lg:px-6 py-3 lg:py-4 text-right">
                             <button onclick="deleteTrip(${t.id})" class="text-stone-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50" title="Hapus">
@@ -546,30 +724,6 @@
                     </tr>
                 `;
             }).join('');
-        }
-
-        function showUserEdit(event, tripId) {
-            event.stopPropagation();
-            const existing = document.querySelector('.user-select');
-            if (existing) existing.remove();
-
-            const cell = event.currentTarget;
-            const trip = trips.find(t => t.id === tripId);
-            
-            const select = document.createElement('select');
-            select.className = 'user-select';
-            select.innerHTML = `<option value="Saya" ${trip.user === 'Saya' ? 'selected' : ''}>Saya</option><option value="Istri" ${trip.user === 'Istri' ? 'selected' : ''}>Istri</option>`;
-            
-            cell.style.position = 'relative';
-            cell.appendChild(select);
-            select.focus();
-            
-            select.addEventListener('change', async function() {
-                await sendToSheet('delete', trip.id);
-                await sendToSheet('add', Date.now(), trip.date, this.value, trip.type, trip.notes);
-                await loadDataFromSheet();
-            });
-            select.addEventListener('blur', function() { setTimeout(() => { if (select.parentNode) select.remove(); }, 100); });
         }
 
         document.getElementById('tripForm').addEventListener('submit', async function(e) {
@@ -636,7 +790,7 @@
                          `🌅 Antar Pagi: ${pagiTrips} Trip%0A` +
                          `🌇 Jemput Sore: ${soreTrips} Trip%0A` +
                          `💰 Total Biaya: *Rp ${totalBiaya.toLocaleString('id-ID')}*%0A%0A` +
-                         `Mohon dicek ya, Pak. Terima kasih! 🙏`;
+                         `Mohon dicek ya, Pak. Terima kasih! `;
             
             window.open(`https://wa.me/?text=${text}`, '_blank');
         }
