@@ -58,7 +58,7 @@
         .user-cell { cursor: pointer; transition: all 0.15s; border-radius: 6px; }
         .user-cell:hover { background-color: #f5f5f4; }
         
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #059669; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #059669; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .period-select-wrapper { position: relative; }
@@ -67,8 +67,8 @@
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 12px center;
-            background-size: 20px;
-            padding-right: 45px;
+            background-size: 18px;
+            padding-right: 40px;
         }
         .period-select option:disabled { background-color: #f5f5f4; color: #78716c; font-weight: 600; }
         .period-select option[data-active="true"] { background-color: #d1fae5; color: #065f46; font-weight: 600; }
@@ -76,7 +76,7 @@
         #toast {
             position: fixed; bottom: 24px; left: 50%;
             transform: translateX(-50%) translateY(100px);
-            padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500;
+            padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 9999; opacity: 0;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;
             display: flex; align-items: center; gap: 8px; max-width: 90vw; text-align: center;
@@ -116,25 +116,35 @@
     </aside>
 
     <main class="lg:ml-64 min-h-screen flex flex-col">
-        <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 lg:px-8 py-3">
-            <div class="flex items-center justify-between gap-3">
-                <button onclick="toggleSidebar()" class="lg:hidden p-2 text-stone-600 hover:bg-stone-100 rounded-lg flex-shrink-0"><i data-lucide="menu" class="w-6 h-6"></i></button>
-                <div class="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
-                    <h1 class="text-lg font-bold text-stone-800 flex-shrink-0">Overview</h1>
-                    <div class="period-select-wrapper flex-1 max-w-xs">
-                        <select id="periodFilter" onchange="changePeriodFilter()" class="period-select w-full text-sm border border-stone-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 shadow-sm hover:border-primary-400 transition-colors cursor-pointer"></select>
+        <!-- HEADER RESPONSIVE DUA BARIS DI MOBILE (ANTI-CRUSH) -->
+        <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200 px-4 lg:px-8 py-3">
+            <div class="flex flex-col gap-2.5">
+                <!-- Baris 1: Brand/Title & Action Buttons -->
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleSidebar()" class="lg:hidden p-1.5 text-stone-600 hover:bg-stone-100 rounded-lg flex-shrink-0"><i data-lucide="menu" class="w-5 h-5"></i></button>
+                        <h1 class="text-base sm:text-lg font-bold text-stone-800 tracking-tight">Overview</h1>
+                    </div>
+                    
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <!-- Tombol Refresh -->
+                        <button onclick="manualRefreshData()" id="btnRefresh" class="p-2 text-stone-600 hover:text-primary-600 hover:bg-stone-100 rounded-lg transition-colors border border-stone-200 flex items-center justify-center" title="Muat Ulang Data dari Sheet">
+                            <i data-lucide="refresh-cw" id="iconRefresh" class="w-4 h-4"></i>
+                        </button>
+                        <!-- Tombol Status Bayar -->
+                        <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">
+                            <i data-lucide="wallet" class="w-3.5 h-3.5"></i> <span id="paymentStatusText" class="hidden sm:inline">Belum Dibayar</span><span id="paymentStatusTextMobile" class="sm:hidden">Belum</span>
+                        </button>
+                        <!-- Tombol Tambah Trip -->
+                        <button onclick="openModal()" class="flex items-center justify-center px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-md shadow-primary-600/20 gap-1 text-xs font-semibold flex-shrink-0" title="Catat Perjalanan Baru">
+                            <i data-lucide="plus" class="w-4 h-4"></i> <span class="hidden sm:inline">Tambah</span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button onclick="manualRefreshData()" class="p-2 text-stone-600 hover:text-primary-600 hover:bg-stone-100 rounded-lg transition-colors border border-stone-200" title="Muat Ulang Data dari Sheet">
-                        <i data-lucide="refresh-cw" id="iconRefresh" class="w-4 h-4"></i>
-                    </button>
-                    <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">
-                        <i data-lucide="wallet" class="w-3 h-3"></i> <span id="paymentStatusText" class="hidden sm:inline">Belum Dibayar</span><span id="paymentStatusTextMobile" class="sm:hidden">Belum</span>
-                    </button>
-                    <button onclick="openModal()" class="flex items-center justify-center w-9 h-9 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-md shadow-primary-600/20 flex-shrink-0" title="Catat Perjalanan Baru">
-                        <i data-lucide="plus" class="w-5 h-5"></i>
-                    </button>
+
+                <!-- Baris 2: Period Filter Dropdown (Lebar Penuh di HP agar Teks Utuh) -->
+                <div class="period-select-wrapper w-full lg:max-w-xs">
+                    <select id="periodFilter" onchange="changePeriodFilter()" class="period-select w-full text-xs sm:text-sm border border-stone-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 shadow-sm hover:border-primary-400 transition-colors cursor-pointer"></select>
                 </div>
             </div>
         </header>
@@ -303,12 +313,38 @@
             toast.className = '';
         }
 
-        function toLocalYMD(d) {
-            const date = d || new Date();
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return year + '-' + month + '-' + day;
+        // UNIVERSAL DATE NORMALIZER: Mengubah SEMUA jenis format tanggal (ISO, DD/MM/YYYY, YYYY-MM-DD) menjadi YYYY-MM-DD
+        function toStandardYMD(val) {
+            if (!val) return '';
+            const s = String(val).trim();
+            if (!s) return '';
+            
+            // Format ISO seperti 2026-09-27T17:00:00...
+            if (s.indexOf('T') !== -1) {
+                return s.split('T')[0];
+            }
+            
+            // Format Standar YYYY-MM-DD atau YYYY/MM/DD
+            const ymd = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (ymd) {
+                return ymd[1] + '-' + ymd[2].padStart(2, '0') + '-' + ymd[3].padStart(2, '0');
+            }
+            
+            // Format Indonesia DD/MM/YYYY atau DD-MM-YYYY
+            const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (dmy) {
+                return dmy[3] + '-' + dmy[2].padStart(2, '0') + '-' + dmy[1].padStart(2, '0');
+            }
+            
+            // Fallback: Parsing Date object
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                const y = parsed.getFullYear();
+                const m = String(parsed.getMonth() + 1).padStart(2, '0');
+                const d = String(parsed.getDate()).padStart(2, '0');
+                return y + '-' + m + '-' + d;
+            }
+            return s;
         }
 
         function formatLocalYMD(y, mIndex, d) {
@@ -318,18 +354,10 @@
             return year + '-' + month + '-' + day;
         }
 
-        function cleanDateStr(val) {
-            if (!val) return '';
-            const s = String(val).trim();
-            if (s.indexOf('T') !== -1) return s.split('T')[0];
-            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
-            return s;
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             try {
                 if (typeof lucide !== 'undefined') lucide.createIcons();
-                document.getElementById('inputDate').value = toLocalYMD(new Date());
+                document.getElementById('inputDate').value = toStandardYMD(new Date());
                 populatePeriodFilter();
                 loadDataFromSheet();
             } catch (err) {
@@ -343,10 +371,10 @@
             select.innerHTML = '';
             const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
             const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-            const todayStr = toLocalYMD(new Date());
+            const todayStr = toStandardYMD(new Date());
             const periodsByYear = {};
             const startYear = 2026;
-            const startMonthIndex = 8;
+            const startMonthIndex = 8; // September
 
             for (let i = 0; i < 24; i++) {
                 const currentStartMonth = startMonthIndex + i;
@@ -423,11 +451,11 @@
             const isPaid = localStorage.getItem(storageKey) === 'true';
             
             if (isPaid) {
-                btn.className = "text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-emerald-100 text-emerald-700 border-emerald-200";
+                btn.className = "text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-emerald-100 text-emerald-700 border-emerald-200";
                 text.textContent = "Sudah Dibayar";
                 textMobile.textContent = "Lunas";
             } else {
-                btn.className = "text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-amber-100 text-amber-700 border-amber-200";
+                btn.className = "text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-amber-100 text-amber-700 border-amber-200";
                 text.textContent = "Belum Dibayar";
                 textMobile.textContent = "Belum";
             }
@@ -443,7 +471,7 @@
             showToast(current ? 'Ditandai Belum Dibayar' : 'Ditandai Sudah Dibayar', 'success');
         }
 
-        // BACA DATA DENGAN ANTI-CACHE TOTAL (DOUBLE CACHE BUSTER)
+        // AMBIL DATA DENGAN DUA LAPIS CACHE-BUSTER & NORMALISASI
         async function fetchTripsFromSheet() {
             const cacheBuster = 't=' + Date.now() + '&r=' + Math.random().toString(36).substring(7);
             const res = await fetch(SHEET_API_URL + '?' + cacheBuster, { cache: 'no-store' });
@@ -455,7 +483,7 @@
             }
             return data.map(row => ({
                 id: String(row.id || '').trim(),
-                date: cleanDateStr(row.date),
+                date: toStandardYMD(row.date),
                 user: String(row.user || '').trim(),
                 type: String(row.type || '').trim(),
                 notes: String(row.notes || '').trim()
@@ -477,11 +505,11 @@
         async function manualRefreshData() {
             const icon = document.getElementById('iconRefresh');
             if (icon) icon.classList.add('animate-spin');
-            showToast('Menyinkronkan data terbaru...', 'info', 1500);
+            showToast('Menyinkronkan data langsung dari Sheet...', 'info', 1200);
             try {
                 trips = await fetchTripsFromSheet();
                 renderDashboard();
-                showToast('Data berhasil diperbarui!', 'success', 2000);
+                showToast(`Berhasil memuat ${trips.length} data perjalanan!`, 'success', 2500);
             } catch (e) {
                 showToast('Gagal refresh: ' + e.message, 'error', 3000);
             } finally {
@@ -497,7 +525,7 @@
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            const timeoutId = setTimeout(() => controller.abort(), 4500);
 
             try {
                 await fetch(SHEET_API_URL, {
@@ -513,8 +541,7 @@
                 clearTimeout(timeoutId);
             }
 
-            // Tunggu sebentar dan polling verifikasi
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 700));
 
             for (let poll = 0; poll < 4; poll++) {
                 try {
@@ -530,16 +557,15 @@
                 if (poll < 3) await new Promise(r => setTimeout(r, 800));
             }
 
-            // Fallback load data
             try { trips = await fetchTripsFromSheet(); renderDashboard(); } catch (e) {}
             return true;
         }
 
         function renderDashboard() {
             if (!currentPeriod) return;
-            // Filter dengan normalisasi string YYYY-MM-DD
+            // Filter ketat dengan normalisasi YYYY-MM-DD
             const filtered = trips.filter(t => {
-                const d = cleanDateStr(t.date);
+                const d = toStandardYMD(t.date);
                 return d >= currentPeriod.start && d <= currentPeriod.end;
             });
             updateKPICards(filtered);
@@ -555,7 +581,7 @@
             const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
             const uniqueWeeks = new Set();
             filtered.forEach(t => {
-                const parts = cleanDateStr(t.date).split('-');
+                const parts = toStandardYMD(t.date).split('-');
                 if (parts.length === 3) {
                     const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                     const weekNumber = Math.ceil(d.getDate() / 7);
@@ -563,7 +589,7 @@
                 }
             });
             const avgPerWeek = uniqueWeeks.size > 0 ? (totalTrips / uniqueWeeks.size).toFixed(1) : 0;
-            const uniqueDays = new Set(filtered.map(t => cleanDateStr(t.date)));
+            const uniqueDays = new Set(filtered.map(t => toStandardYMD(t.date)));
 
             document.getElementById('kpiTotalTrip').textContent = totalTrips;
             document.getElementById('kpiTotalBiaya').textContent = 'Rp ' + totalBiaya.toLocaleString('id-ID');
@@ -578,7 +604,7 @@
             const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
             
             filtered.forEach(t => {
-                const parts = cleanDateStr(t.date).split('-');
+                const parts = toStandardYMD(t.date).split('-');
                 const startParts = currentPeriod.start.split('-');
                 if (parts.length === 3 && startParts.length === 3) {
                     const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
@@ -652,7 +678,7 @@
                     trip,
                     (freshData) => {
                         const found = freshData.find(r => String(r.id) === String(trip.id));
-                        return found && cleanDateStr(found.date) === cleanDateStr(trip.date) && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
+                        return found && toStandardYMD(found.date) === toStandardYMD(trip.date) && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
                     }
                 );
                 showToast('Tersimpan & Terverifikasi', 'success', 2500);
@@ -675,7 +701,7 @@
             const input = document.createElement('input');
             input.type = 'date';
             input.className = 'inline-input';
-            input.value = cleanDateStr(trip.date);
+            input.value = toStandardYMD(trip.date);
             cell.innerHTML = '';
             cell.appendChild(input);
             input.focus();
@@ -685,7 +711,7 @@
                 if (saved) return;
                 saved = true;
                 const newDate = input.value;
-                if (newDate && newDate !== cleanDateStr(trip.date)) {
+                if (newDate && newDate !== toStandardYMD(trip.date)) {
                     const updated = Object.assign({}, trip, { date: newDate });
                     await updateTripInSheet(updated);
                 } else {
@@ -814,7 +840,7 @@
 
         function renderTable(filtered) {
             const tbody = document.getElementById('tableBody');
-            const sorted = filtered.slice().sort((a, b) => new Date(cleanDateStr(b.date)) - new Date(cleanDateStr(a.date)));
+            const sorted = filtered.slice().sort((a, b) => new Date(toStandardYMD(b.date)) - new Date(toStandardYMD(a.date)));
             
             if (sorted.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500 text-sm">Tidak ada data perjalanan pada periode ini.</td></tr>';
@@ -830,7 +856,7 @@
                 const notesDisplay = t.notes ? t.notes : 'Tambah catatan...';
                 const notesTitle = (t.notes || 'Klik untuk tambah catatan').replace(/"/g, '&quot;');
                 const safeId = String(t.id).replace(/'/g, "\\'");
-                const dateClean = cleanDateStr(t.date);
+                const dateClean = toStandardYMD(t.date);
 
                 return '<tr class="hover:bg-stone-50 transition-colors">' +
                     '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
@@ -905,7 +931,7 @@
                 showToast('Perjalanan berhasil disimpan!', 'success', 2500);
                 closeModal();
                 this.reset();
-                document.getElementById('inputDate').value = toLocalYMD(new Date());
+                document.getElementById('inputDate').value = toStandardYMD(new Date());
             } catch (err) {
                 console.error('Add trip error:', err);
                 showToast(err.message, 'error', 4500);
@@ -940,7 +966,7 @@
 
         function sendToWhatsApp() {
             const filtered = trips.filter(t => {
-                const d = cleanDateStr(t.date);
+                const d = toStandardYMD(t.date);
                 return d >= currentPeriod.start && d <= currentPeriod.end;
             });
             if (filtered.length === 0) {
@@ -998,7 +1024,7 @@
 
         function formatDate(dateString) {
             if (!dateString) return '-';
-            const parts = cleanDateStr(dateString).split('-');
+            const parts = toStandardYMD(dateString).split('-');
             if (parts.length === 3) {
                 const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                 return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
