@@ -116,10 +116,8 @@
     </aside>
 
     <main class="lg:ml-64 min-h-screen flex flex-col">
-        <!-- HEADER RESPONSIVE DUA BARIS DI MOBILE (ANTI-CRUSH) -->
         <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200 px-4 lg:px-8 py-3">
             <div class="flex flex-col gap-2.5">
-                <!-- Baris 1: Brand/Title & Action Buttons -->
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
                         <button onclick="toggleSidebar()" class="lg:hidden p-1.5 text-stone-600 hover:bg-stone-100 rounded-lg flex-shrink-0"><i data-lucide="menu" class="w-5 h-5"></i></button>
@@ -127,22 +125,18 @@
                     </div>
                     
                     <div class="flex items-center gap-1.5 sm:gap-2">
-                        <!-- Tombol Refresh -->
                         <button onclick="manualRefreshData()" id="btnRefresh" class="p-2 text-stone-600 hover:text-primary-600 hover:bg-stone-100 rounded-lg transition-colors border border-stone-200 flex items-center justify-center" title="Muat Ulang Data dari Sheet">
                             <i data-lucide="refresh-cw" id="iconRefresh" class="w-4 h-4"></i>
                         </button>
-                        <!-- Tombol Status Bayar -->
                         <button id="btnPaymentStatus" onclick="togglePaymentStatus()" class="text-xs font-semibold px-2.5 py-2 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">
                             <i data-lucide="wallet" class="w-3.5 h-3.5"></i> <span id="paymentStatusText" class="hidden sm:inline">Belum Dibayar</span><span id="paymentStatusTextMobile" class="sm:hidden">Belum</span>
                         </button>
-                        <!-- Tombol Tambah Trip -->
                         <button onclick="openModal()" class="flex items-center justify-center px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-md shadow-primary-600/20 gap-1 text-xs font-semibold flex-shrink-0" title="Catat Perjalanan Baru">
                             <i data-lucide="plus" class="w-4 h-4"></i> <span class="hidden sm:inline">Tambah</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Baris 2: Period Filter Dropdown (Lebar Penuh di HP agar Teks Utuh) -->
                 <div class="period-select-wrapper w-full lg:max-w-xs">
                     <select id="periodFilter" onchange="changePeriodFilter()" class="period-select w-full text-xs sm:text-sm border border-stone-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-semibold text-stone-700 shadow-sm hover:border-primary-400 transition-colors cursor-pointer"></select>
                 </div>
@@ -313,30 +307,37 @@
             toast.className = '';
         }
 
-        // UNIVERSAL DATE NORMALIZER: Mengubah SEMUA jenis format tanggal (ISO, DD/MM/YYYY, YYYY-MM-DD) menjadi YYYY-MM-DD
+        // PARSER TANGGAL TAHAN BANTING (ANTI-GMT BUG)
         function toStandardYMD(val) {
             if (!val) return '';
+            if (val instanceof Date) {
+                const y = val.getFullYear();
+                const m = String(val.getMonth() + 1).padStart(2, '0');
+                const d = String(val.getDate()).padStart(2, '0');
+                return y + '-' + m + '-' + d;
+            }
             const s = String(val).trim();
             if (!s) return '';
             
-            // Format ISO seperti 2026-09-27T17:00:00...
-            if (s.indexOf('T') !== -1) {
-                return s.split('T')[0];
+            // 1. Format ISO murni: 2026-09-27T17:00:00...
+            const iso = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})[T\s]/);
+            if (iso) {
+                return iso[1] + '-' + iso[2].padStart(2, '0') + '-' + iso[3].padStart(2, '0');
             }
             
-            // Format Standar YYYY-MM-DD atau YYYY/MM/DD
-            const ymd = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            // 2. Format YYYY-MM-DD
+            const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
             if (ymd) {
                 return ymd[1] + '-' + ymd[2].padStart(2, '0') + '-' + ymd[3].padStart(2, '0');
             }
             
-            // Format Indonesia DD/MM/YYYY atau DD-MM-YYYY
-            const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            // 3. Format DD/MM/YYYY
+            const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if (dmy) {
                 return dmy[3] + '-' + dmy[2].padStart(2, '0') + '-' + dmy[1].padStart(2, '0');
             }
             
-            // Fallback: Parsing Date object
+            // 4. String format Date JS (misal Mon Sep 28 2026...)
             const parsed = new Date(s);
             if (!isNaN(parsed.getTime())) {
                 const y = parsed.getFullYear();
@@ -471,7 +472,6 @@
             showToast(current ? 'Ditandai Belum Dibayar' : 'Ditandai Sudah Dibayar', 'success');
         }
 
-        // AMBIL DATA DENGAN DUA LAPIS CACHE-BUSTER & NORMALISASI
         async function fetchTripsFromSheet() {
             const cacheBuster = 't=' + Date.now() + '&r=' + Math.random().toString(36).substring(7);
             const res = await fetch(SHEET_API_URL + '?' + cacheBuster, { cache: 'no-store' });
@@ -509,7 +509,11 @@
             try {
                 trips = await fetchTripsFromSheet();
                 renderDashboard();
-                showToast(`Berhasil memuat ${trips.length} data perjalanan!`, 'success', 2500);
+                const filteredCount = trips.filter(t => {
+                    const d = toStandardYMD(t.date);
+                    return d >= currentPeriod.start && d <= currentPeriod.end;
+                }).length;
+                showToast(`Total ${trips.length} trip ditemukan (${filteredCount} di periode ini)!`, 'success', 3000);
             } catch (e) {
                 showToast('Gagal refresh: ' + e.message, 'error', 3000);
             } finally {
@@ -563,7 +567,7 @@
 
         function renderDashboard() {
             if (!currentPeriod) return;
-            // Filter ketat dengan normalisasi YYYY-MM-DD
+            // Normalisasi dan filter akurat
             const filtered = trips.filter(t => {
                 const d = toStandardYMD(t.date);
                 return d >= currentPeriod.start && d <= currentPeriod.end;
@@ -1024,7 +1028,8 @@
 
         function formatDate(dateString) {
             if (!dateString) return '-';
-            const parts = toStandardYMD(dateString).split('-');
+            const std = toStandardYMD(dateString);
+            const parts = std.split('-');
             if (parts.length === 3) {
                 const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
                 return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
