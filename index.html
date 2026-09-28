@@ -300,7 +300,6 @@
             toast.className = '';
         }
 
-        // Format tanggal lokal (YYYY-MM-DD) tanpa bug timezone UTC
         function toLocalYMD(d) {
             const date = d || new Date();
             const year = date.getFullYear();
@@ -336,7 +335,7 @@
             const todayStr = toLocalYMD(new Date());
             const periodsByYear = {};
             const startYear = 2026;
-            const startMonthIndex = 8; // September
+            const startMonthIndex = 8;
 
             for (let i = 0; i < 24; i++) {
                 const currentStartMonth = startMonthIndex + i;
@@ -458,55 +457,58 @@
                 renderDashboard();
             } catch (error) {
                 console.error('Gagal memuat data:', error);
-                document.getElementById('loadingState').innerHTML = '<div class=\"text-center space-y-2\"><p class=\"text-red-500 text-sm font-medium\">Gagal memuat data: ' + error.message + '</p><button onclick=\"location.reload()\" class=\"px-3 py-1.5 bg-primary-600 text-white rounded text-xs\">Coba Lagi</button></div>';
+                document.getElementById('loadingState').innerHTML = '<div class="text-center space-y-2"><p class="text-red-500 text-sm font-medium">Gagal memuat data: ' + error.message + '</p><button onclick="location.reload()" class="px-3 py-1.5 bg-primary-600 text-white rounded text-xs">Coba Lagi</button></div>';
             }
         }
 
-        // ENGINE PERSISTENSI MOBILE-SAFE: POST + VERIFIKASI BACA-BALIK (READ-BACK) + RETRY BACKOFF
-        async function executeWriteWithVerification(action, payload, verifyFn, maxRetries = 2) {
-            let attempts = 0;
-            let lastError = null;
-
-            while (attempts <= maxRetries) {
-                attempts++;
-                try {
-                    // Pola POST text/plain;charset=utf-8 mencegah CORS OPTIONS preflight blocking pada browser HP
-                    const bodyData = JSON.stringify({ action: action, ...payload });
-                    await fetch(SHEET_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: bodyData
-                    }).catch(err => {
-                        console.warn('Network issue on POST, akan diverifikasi via read-back:', err);
-                    });
-
-                    // Jeda sejenak agar Google Apps Script menyelesaikan proses flush sheet
-                    await new Promise(r => setTimeout(r, 800));
-
-                    // Polling baca-balik (read-back verification) hingga 3 kali
-                    for (let poll = 0; poll < 3; poll++) {
-                        const freshRows = await fetchTripsFromSheet();
-                        if (verifyFn(freshRows)) {
-                            trips = freshRows;
-                            renderDashboard();
-                            return true; // Sukses terverifikasi secara nyata di Google Sheets
-                        }
-                        if (poll < 2) await new Promise(r => setTimeout(r, 1000));
-                    }
-                } catch (err) {
-                    console.warn(`Percobaan ke-${attempts} gagal:`, err);
-                    lastError = err;
-                }
-
-                if (attempts <= maxRetries) {
-                    showToast(`Koneksi lambat, mencoba ulang (${attempts}/${maxRetries})...`, 'info', 0);
-                    await new Promise(r => setTimeout(r, 1500 * attempts));
-                }
+        // ENGINE PERSISTENSI ULTRA-FAST MOBILE (ANTI-STUCK SAFARI)
+        async function executeWriteWithVerification(action, payload, verifyFn) {
+            // Susun payload URLSearchParams: kompatibel 100% dengan backend lama maupun baru
+            const params = new URLSearchParams();
+            params.append('action', action);
+            for (const [key, val] of Object.entries(payload)) {
+                params.append(key, val == null ? '' : String(val));
             }
 
-            // Jika sampai batas retry tetap gagal, sinkronkan ulang state dari Sheet agar UI tidak menampilkan data palsu
+            // Kirim POST dengan mode: 'no-cors' agar Safari iOS tidak macet (hang) pada redirect 302
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+            try {
+                await fetch(SHEET_API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params,
+                    signal: controller.signal
+                });
+            } catch (postErr) {
+                console.warn('POST dispatched (lanjut verifikasi baca-balik):', postErr);
+            } finally {
+                clearTimeout(timeoutId);
+            }
+
+            // Polling Verifikasi Cepat (GET dengan cache-buster)
+            // Jeda 600ms memberi waktu Google Sheet melakukan flush
+            await new Promise(r => setTimeout(r, 600));
+
+            for (let poll = 0; poll < 4; poll++) {
+                try {
+                    const freshRows = await fetchTripsFromSheet();
+                    if (verifyFn(freshRows)) {
+                        trips = freshRows;
+                        renderDashboard();
+                        return true; // Sukses & terkonfirmasi di Sheet!
+                    }
+                } catch (getErr) {
+                    console.warn(`Polling ${poll + 1} gagal baca:`, getErr);
+                }
+                if (poll < 3) await new Promise(r => setTimeout(r, 800));
+            }
+
+            // Fallback: Jika setelah 3 detik belum terbaca, coba sinkronkan sekali lagi
             try { trips = await fetchTripsFromSheet(); renderDashboard(); } catch (e) {}
-            throw lastError || new Error('Data tidak dapat diverifikasi di Google Sheets.');
+            throw new Error('Data belum muncul di Google Sheets. Pastikan Anda sudah Deploy > New Version di Apps Script.');
         }
 
         function renderDashboard() {
@@ -597,13 +599,13 @@
             });
 
             document.getElementById('chartLegend').innerHTML =
-                '<div class=\"flex items-center justify-between text-xs lg:text-sm\">' +
-                    '<div class=\"flex items-center gap-2\"><span class=\"w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-amber-500\"></span><span class=\"text-stone-600\">Pagi</span></div>' +
-                    '<span class=\"font-semibold text-stone-800\">' + Math.round((pagiCount / total) * 100) + '%</span>' +
+                '<div class="flex items-center justify-between text-xs lg:text-sm">' +
+                    '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-amber-500"></span><span class="text-stone-600">Pagi</span></div>' +
+                    '<span class="font-semibold text-stone-800">' + Math.round((pagiCount / total) * 100) + '%</span>' +
                 '</div>' +
-                '<div class=\"flex items-center justify-between text-xs lg:text-sm\">' +
-                    '<div class=\"flex items-center gap-2\"><span class=\"w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-indigo-500\"></span><span class=\"text-stone-600\">Sore</span></div>' +
-                    '<span class=\"font-semibold text-stone-800\">' + Math.round((soreCount / total) * 100) + '%</span>' +
+                '<div class="flex items-center justify-between text-xs lg:text-sm">' +
+                    '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-indigo-500"></span><span class="text-stone-600">Sore</span></div>' +
+                    '<span class="font-semibold text-stone-800">' + Math.round((soreCount / total) * 100) + '%</span>' +
                 '</div>';
         }
 
@@ -614,7 +616,7 @@
         async function updateTripInSheet(trip) {
             if (isBusy) return;
             isBusy = true;
-            showToast('Mensinkronkan perubahan ke Sheet...', 'info', 0);
+            showToast('Menyimpan ke Sheet...', 'info', 0);
             
             try {
                 await executeWriteWithVerification(
@@ -625,10 +627,10 @@
                         return found && found.date === trip.date && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
                     }
                 );
-                showToast('Tersimpan & Terverifikasi di Sheet', 'success', 2500);
+                showToast('Tersimpan & Terverifikasi', 'success', 2500);
             } catch (error) {
                 console.error('Gagal update:', error);
-                showToast('Gagal menyimpan ke Sheet: ' + error.message, 'error', 4000);
+                showToast(error.message, 'error', 4500);
             } finally {
                 isBusy = false;
             }
@@ -681,7 +683,7 @@
 
             const select = document.createElement('select');
             select.className = 'inline-select';
-            select.innerHTML = '<option value=\"Saya\"' + (trip.user === 'Saya' ? ' selected' : '') + '>Saya</option><option value=\"Istri\"' + (trip.user === 'Istri' ? ' selected' : '') + '>Istri</option>';
+            select.innerHTML = '<option value="Saya"' + (trip.user === 'Saya' ? ' selected' : '') + '>Saya</option><option value="Istri"' + (trip.user === 'Istri' ? ' selected' : '') + '>Istri</option>';
             cell.innerHTML = '';
             cell.appendChild(select);
             select.focus();
@@ -713,7 +715,7 @@
 
             const select = document.createElement('select');
             select.className = 'inline-select';
-            select.innerHTML = '<option value=\"Pagi\"' + (trip.type === 'Pagi' ? ' selected' : '') + '>Pagi</option><option value=\"Sore\"' + (trip.type === 'Sore' ? ' selected' : '') + '>Sore</option>';
+            select.innerHTML = '<option value="Pagi"' + (trip.type === 'Pagi' ? ' selected' : '') + '>Pagi</option><option value="Sore"' + (trip.type === 'Sore' ? ' selected' : '') + '>Sore</option>';
             cell.innerHTML = '';
             cell.appendChild(select);
             select.focus();
@@ -787,7 +789,7 @@
             const sorted = filtered.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
             
             if (sorted.length === 0) {
-                tbody.innerHTML = '<tr><td colspan=\"6\" class=\"px-6 py-8 text-center text-stone-500 text-sm\">Tidak ada data perjalanan pada periode ini.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-stone-500 text-sm">Tidak ada data perjalanan pada periode ini.</td></tr>';
                 return;
             }
 
@@ -801,42 +803,42 @@
                 const notesTitle = (t.notes || 'Klik untuk tambah catatan').replace(/"/g, '&quot;');
                 const safeId = String(t.id).replace(/'/g, "\\'");
 
-                return '<tr class=\"hover:bg-stone-50 transition-colors\">' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
-                        '<div class=\"editable-cell flex items-center gap-1.5 px-2 py-1 w-fit\" onclick=\"editDate(event, \\\'' + safeId + '\\\')\">' +
-                            '<span class=\"font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap\">' + formatDate(t.date) + '</span>' +
-                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                return '<tr class="hover:bg-stone-50 transition-colors">' +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
+                        '<div class="editable-cell flex items-center gap-1.5 px-2 py-1 w-fit" onclick="editDate(event, \'' + safeId + '\')">' +
+                            '<span class="font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap">' + formatDate(t.date) + '</span>' +
+                            '<i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>' +
                         '</div>' +
                     '</td>' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
-                        '<div class=\"user-cell flex items-center gap-2 px-2 py-1 w-fit\" onclick=\"editUser(event, \\\'' + safeId + '\\\')\">' +
-                            '<div class=\"w-6 h-6 rounded-full ' + userBg + ' flex items-center justify-center text-xs font-bold flex-shrink-0\">' + userInitial + '</div>' +
-                            '<span class=\"font-medium text-stone-700 text-xs lg:text-sm\">' + t.user + '</span>' +
-                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
+                        '<div class="user-cell flex items-center gap-2 px-2 py-1 w-fit" onclick="editUser(event, \'' + safeId + '\')">' +
+                            '<div class="w-6 h-6 rounded-full ' + userBg + ' flex items-center justify-center text-xs font-bold flex-shrink-0">' + userInitial + '</div>' +
+                            '<span class="font-medium text-stone-700 text-xs lg:text-sm">' + t.user + '</span>' +
+                            '<i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>' +
                         '</div>' +
                     '</td>' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
-                        '<div class=\"editable-cell flex items-center gap-1.5 px-2 py-1 w-fit\" onclick=\"editType(event, \\\'' + safeId + '\\\')\">' +
-                            '<span class=\"flex items-center gap-1.5 ' + typeColor + ' px-2 py-1 rounded-full text-xs font-medium w-fit whitespace-nowrap\">' +
-                                '<i data-lucide=\"' + typeIcon + '\" class=\"w-3 h-3\"></i> ' + t.type +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
+                        '<div class="editable-cell flex items-center gap-1.5 px-2 py-1 w-fit" onclick="editType(event, \'' + safeId + '\')">' +
+                            '<span class="flex items-center gap-1.5 ' + typeColor + ' px-2 py-1 rounded-full text-xs font-medium w-fit whitespace-nowrap">' +
+                                '<i data-lucide="' + typeIcon + '" class="w-3 h-3"></i> ' + t.type +
                             '</span>' +
-                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                            '<i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 flex-shrink-0"></i>' +
                         '</div>' +
                     '</td>' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4\">' +
-                        '<span class=\"inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200 whitespace-nowrap\">' +
-                            '<i data-lucide=\"arrow-right\" class=\"w-3 h-3\"></i> ' + routeText +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4">' +
+                        '<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200 whitespace-nowrap">' +
+                            '<i data-lucide="arrow-right" class="w-3 h-3"></i> ' + routeText +
                         '</span>' +
                     '</td>' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
-                        '<div class=\"editable-cell px-2 py-1 w-full\" onclick=\"editNotes(event, \\\'' + safeId + '\\\')\">' +
-                            '<span class=\"text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]\" title=\"' + notesTitle + '\">' + notesDisplay + '</span>' +
-                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 absolute top-1/2 right-2 transform -translate-y-1/2\"></i>' +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4 relative">' +
+                        '<div class="editable-cell px-2 py-1 w-full" onclick="editNotes(event, \'' + safeId + '\')">' +
+                            '<span class="text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]" title="' + notesTitle + '">' + notesDisplay + '</span>' +
+                            '<i data-lucide="pencil" class="edit-icon w-3 h-3 text-stone-400 absolute top-1/2 right-2 transform -translate-y-1/2"></i>' +
                         '</div>' +
                     '</td>' +
-                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 text-right\">' +
-                        '<button onclick=\"deleteTrip(\\\'' + safeId + '\\\')\" class=\"text-stone-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50\" title=\"Hapus\">' +
-                            '<i data-lucide=\"trash-2\" class=\"w-4 h-4\"></i>' +
+                    '<td class="px-4 lg:px-6 py-3 lg:py-4 text-right">' +
+                        '<button onclick="deleteTrip(\'' + safeId + '\')" class="text-stone-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50" title="Hapus">' +
+                            '<i data-lucide="trash-2" class="w-4 h-4"></i>' +
                         '</button>' +
                     '</td>' +
                 '</tr>';
@@ -853,8 +855,8 @@
             const originalBtnHtml = btn.innerHTML;
             btn.disabled = true;
             btnCancel.disabled = true;
-            btn.innerHTML = '<div class=\"loader\" style=\"width:16px; height:16px; border-width:2px; border-top-color:white;\"></div><span>Menyimpan ke Sheet...</span>';
-            showToast('Mensinkronkan ke Google Sheet...', 'info', 0);
+            btn.innerHTML = '<div class="loader" style="width:16px; height:16px; border-width:2px; border-top-color:white;"></div><span>Menyimpan...</span>';
+            showToast('Menyimpan ke Google Sheet...', 'info', 0);
 
             const newId = String(Date.now());
             const newTrip = {
@@ -871,13 +873,13 @@
                     newTrip,
                     (freshData) => freshData.some(r => String(r.id) === newId)
                 );
-                showToast('Perjalanan berhasil disimpan & diverifikasi!', 'success', 3000);
+                showToast('Perjalanan berhasil disimpan!', 'success', 2500);
                 closeModal();
                 this.reset();
                 document.getElementById('inputDate').value = toLocalYMD(new Date());
             } catch (err) {
                 console.error('Add trip error:', err);
-                showToast('Gagal menyimpan ke Sheet setelah 2x percobaan: ' + err.message, 'error', 5000);
+                showToast(err.message, 'error', 4500);
             } finally {
                 btn.disabled = false;
                 btnCancel.disabled = false;
@@ -890,7 +892,7 @@
             if (isBusy) return;
             if (!confirm('Hapus data perjalanan ini?')) return;
             isBusy = true;
-            showToast('Menghapus dari Google Sheet...', 'info', 0);
+            showToast('Menghapus dari Sheet...', 'info', 0);
 
             try {
                 await executeWriteWithVerification(
@@ -898,10 +900,10 @@
                     { id: String(id) },
                     (freshData) => !freshData.some(r => String(r.id) === String(id))
                 );
-                showToast('Data berhasil dihapus dari Sheet!', 'success', 2500);
+                showToast('Data berhasil dihapus!', 'success', 2500);
             } catch (err) {
                 console.error('Delete trip error:', err);
-                showToast('Gagal menghapus dari Sheet: ' + err.message, 'error', 4000);
+                showToast(err.message, 'error', 4500);
             } finally {
                 isBusy = false;
             }
