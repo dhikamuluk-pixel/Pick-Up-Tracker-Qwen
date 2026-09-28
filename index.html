@@ -332,4 +332,645 @@
             const select = document.getElementById('periodFilter');
             select.innerHTML = '';
             const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-            const monthsShort = ['Jan', 'F
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const todayStr = toLocalYMD(new Date());
+            const periodsByYear = {};
+            const startYear = 2026;
+            const startMonthIndex = 8; // September
+
+            for (let i = 0; i < 24; i++) {
+                const currentStartMonth = startMonthIndex + i;
+                const currentEndMonth = currentStartMonth + 1;
+                const sYear = startYear + Math.floor(currentStartMonth / 12);
+                const sMonth = currentStartMonth % 12;
+                const eYear = startYear + Math.floor(currentEndMonth / 12);
+                const eMonth = currentEndMonth % 12;
+
+                const startDateStr = formatLocalYMD(sYear, sMonth, 25);
+                const endDateStr = formatLocalYMD(eYear, eMonth, 25);
+                const label = '25 ' + monthsShort[sMonth] + ' - 25 ' + monthsShort[eMonth] + ' ' + eYear;
+                const fullLabel = '25 ' + months[sMonth] + ' - 25 ' + months[eMonth] + ' ' + eYear;
+
+                if (!periodsByYear[eYear]) periodsByYear[eYear] = [];
+                const periodObj = { label: label, fullLabel: fullLabel, start: startDateStr, end: endDateStr, isCurrent: false };
+
+                if (todayStr >= startDateStr && todayStr <= endDateStr) {
+                    currentPeriod = periodObj;
+                    periodObj.isCurrent = true;
+                }
+                periodsByYear[eYear].push(periodObj);
+            }
+
+            if (!currentPeriod) {
+                const firstYear = Object.keys(periodsByYear).sort()[0];
+                currentPeriod = periodsByYear[firstYear][0];
+                currentPeriod.isCurrent = true;
+            }
+
+            Object.keys(periodsByYear).sort().forEach(year => {
+                const groupLabel = document.createElement('option');
+                groupLabel.disabled = true;
+                groupLabel.textContent = ' Tahun ' + year;
+                select.appendChild(groupLabel);
+
+                periodsByYear[year].forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(p);
+                    option.textContent = p.label;
+                    if (p.isCurrent) {
+                        option.selected = true;
+                        option.dataset.active = 'true';
+                    }
+                    select.appendChild(option);
+                });
+
+                const separator = document.createElement('option');
+                separator.disabled = true;
+                separator.textContent = '──────────────────────────';
+                separator.className = 'text-stone-300';
+                select.appendChild(separator);
+            });
+
+            if (select.lastChild && select.lastChild.disabled && select.lastChild.textContent.includes('─')) {
+                select.removeChild(select.lastChild);
+            }
+            updatePaymentStatusUI();
+        }
+
+        function changePeriodFilter() {
+            const select = document.getElementById('periodFilter');
+            currentPeriod = JSON.parse(select.value);
+            updatePaymentStatusUI();
+            renderDashboard();
+        }
+
+        function updatePaymentStatusUI() {
+            if (!currentPeriod) return;
+            const btn = document.getElementById('btnPaymentStatus');
+            const text = document.getElementById('paymentStatusText');
+            const textMobile = document.getElementById('paymentStatusTextMobile');
+            const storageKey = 'paid_' + currentPeriod.label.replace(/\s+/g, '_');
+            const isPaid = localStorage.getItem(storageKey) === 'true';
+            
+            if (isPaid) {
+                btn.className = "text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-emerald-100 text-emerald-700 border-emerald-200";
+                text.textContent = "Sudah Dibayar";
+                textMobile.textContent = "Lunas";
+            } else {
+                btn.className = "text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap bg-amber-100 text-amber-700 border-amber-200";
+                text.textContent = "Belum Dibayar";
+                textMobile.textContent = "Belum";
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function togglePaymentStatus() {
+            if (!currentPeriod) return;
+            const storageKey = 'paid_' + currentPeriod.label.replace(/\s+/g, '_');
+            const current = localStorage.getItem(storageKey) === 'true';
+            localStorage.setItem(storageKey, !current);
+            updatePaymentStatusUI();
+            showToast(current ? 'Ditandai Belum Dibayar' : 'Ditandai Sudah Dibayar', 'success');
+        }
+
+        async function fetchTripsFromSheet() {
+            const res = await fetch(SHEET_API_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            if (!Array.isArray(data)) {
+                if (data && data.status === 'error') throw new Error(data.message || 'Sheet API error');
+                throw new Error('Respon Sheet bukan array');
+            }
+            return data.map(row => ({
+                id: String(row.id || '').trim(),
+                date: String(row.date || '').trim(),
+                user: String(row.user || '').trim(),
+                type: String(row.type || '').trim(),
+                notes: String(row.notes || '').trim()
+            }));
+        }
+
+        async function loadDataFromSheet() {
+            try {
+                trips = await fetchTripsFromSheet();
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                renderDashboard();
+            } catch (error) {
+                console.error('Gagal memuat data:', error);
+                document.getElementById('loadingState').innerHTML = '<div class=\"text-center space-y-2\"><p class=\"text-red-500 text-sm font-medium\">Gagal memuat data: ' + error.message + '</p><button onclick=\"location.reload()\" class=\"px-3 py-1.5 bg-primary-600 text-white rounded text-xs\">Coba Lagi</button></div>';
+            }
+        }
+
+        // ENGINE PERSISTENSI MOBILE-SAFE: POST + VERIFIKASI BACA-BALIK (READ-BACK) + RETRY BACKOFF
+        async function executeWriteWithVerification(action, payload, verifyFn, maxRetries = 2) {
+            let attempts = 0;
+            let lastError = null;
+
+            while (attempts <= maxRetries) {
+                attempts++;
+                try {
+                    // Pola POST text/plain;charset=utf-8 mencegah CORS OPTIONS preflight blocking pada browser HP
+                    const bodyData = JSON.stringify({ action: action, ...payload });
+                    await fetch(SHEET_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: bodyData
+                    }).catch(err => {
+                        console.warn('Network issue on POST, akan diverifikasi via read-back:', err);
+                    });
+
+                    // Jeda sejenak agar Google Apps Script menyelesaikan proses flush sheet
+                    await new Promise(r => setTimeout(r, 800));
+
+                    // Polling baca-balik (read-back verification) hingga 3 kali
+                    for (let poll = 0; poll < 3; poll++) {
+                        const freshRows = await fetchTripsFromSheet();
+                        if (verifyFn(freshRows)) {
+                            trips = freshRows;
+                            renderDashboard();
+                            return true; // Sukses terverifikasi secara nyata di Google Sheets
+                        }
+                        if (poll < 2) await new Promise(r => setTimeout(r, 1000));
+                    }
+                } catch (err) {
+                    console.warn(`Percobaan ke-${attempts} gagal:`, err);
+                    lastError = err;
+                }
+
+                if (attempts <= maxRetries) {
+                    showToast(`Koneksi lambat, mencoba ulang (${attempts}/${maxRetries})...`, 'info', 0);
+                    await new Promise(r => setTimeout(r, 1500 * attempts));
+                }
+            }
+
+            // Jika sampai batas retry tetap gagal, sinkronkan ulang state dari Sheet agar UI tidak menampilkan data palsu
+            try { trips = await fetchTripsFromSheet(); renderDashboard(); } catch (e) {}
+            throw lastError || new Error('Data tidak dapat diverifikasi di Google Sheets.');
+        }
+
+        function renderDashboard() {
+            if (!currentPeriod) return;
+            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
+            updateKPICards(filtered);
+            renderCharts(filtered);
+            renderTable(filtered);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function updateKPICards(filtered) {
+            const totalTrips = filtered.length;
+            const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
+            const soreTrips = filtered.filter(t => t.type === 'Sore').length;
+            const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
+            const uniqueWeeks = new Set();
+            filtered.forEach(t => {
+                const parts = t.date.split('-');
+                if (parts.length === 3) {
+                    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    const weekNumber = Math.ceil(d.getDate() / 7);
+                    uniqueWeeks.add(d.getMonth() + '-' + weekNumber);
+                }
+            });
+            const avgPerWeek = uniqueWeeks.size > 0 ? (totalTrips / uniqueWeeks.size).toFixed(1) : 0;
+            const uniqueDays = new Set(filtered.map(t => t.date));
+
+            document.getElementById('kpiTotalTrip').textContent = totalTrips;
+            document.getElementById('kpiTotalBiaya').textContent = 'Rp ' + totalBiaya.toLocaleString('id-ID');
+            document.getElementById('kpiPagi').textContent = pagiTrips;
+            document.getElementById('kpiSore').textContent = soreTrips;
+            document.getElementById('kpiAvgWeek').textContent = avgPerWeek;
+            document.getElementById('kpiHariKerja').textContent = uniqueDays.size;
+        }
+
+        function renderCharts(filtered) {
+            const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
+            const weeklyData = { pagi: [0, 0, 0, 0], sore: [0, 0, 0, 0] };
+            
+            filtered.forEach(t => {
+                const parts = t.date.split('-');
+                const startParts = currentPeriod.start.split('-');
+                if (parts.length === 3 && startParts.length === 3) {
+                    const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    const startDate = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10));
+                    const diffDays = Math.max(0, Math.floor((date - startDate) / (1000 * 60 * 60 * 24)));
+                    const weekIndex = Math.min(3, Math.floor(diffDays / 7));
+                    if (t.type === 'Pagi') weeklyData.pagi[weekIndex]++;
+                    else weeklyData.sore[weekIndex]++;
+                }
+            });
+
+            if (chartInstanceTrend) chartInstanceTrend.destroy();
+            chartInstanceTrend = new Chart(ctxTrend, {
+                type: 'bar',
+                data: {
+                    labels: ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4'],
+                    datasets: [
+                        { label: 'Antar Pagi', data: weeklyData.pagi, backgroundColor: '#f59e0b', borderRadius: 6, barPercentage: 0.6 },
+                        { label: 'Jemput Sore', data: weeklyData.sore, backgroundColor: '#6366f1', borderRadius: 6, barPercentage: 0.6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 2, font: { size: 10 } }, grid: { color: '#f5f5f4' } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+
+            const ctxType = document.getElementById('typeDistributionChart').getContext('2d');
+            const pagiCount = filtered.filter(t => t.type === 'Pagi').length;
+            const soreCount = filtered.filter(t => t.type === 'Sore').length;
+            const total = filtered.length || 1;
+
+            if (chartInstanceType) chartInstanceType.destroy();
+            chartInstanceType = new Chart(ctxType, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pagi', 'Sore'],
+                    datasets: [{ data: [pagiCount, soreCount], backgroundColor: ['#f59e0b', '#6366f1'], borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+            });
+
+            document.getElementById('chartLegend').innerHTML =
+                '<div class=\"flex items-center justify-between text-xs lg:text-sm\">' +
+                    '<div class=\"flex items-center gap-2\"><span class=\"w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-amber-500\"></span><span class=\"text-stone-600\">Pagi</span></div>' +
+                    '<span class=\"font-semibold text-stone-800\">' + Math.round((pagiCount / total) * 100) + '%</span>' +
+                '</div>' +
+                '<div class=\"flex items-center justify-between text-xs lg:text-sm\">' +
+                    '<div class=\"flex items-center gap-2\"><span class=\"w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-indigo-500\"></span><span class=\"text-stone-600\">Sore</span></div>' +
+                    '<span class=\"font-semibold text-stone-800\">' + Math.round((soreCount / total) * 100) + '%</span>' +
+                '</div>';
+        }
+
+        function removeExistingInlineEdit() {
+            document.querySelectorAll('.inline-input, .inline-select, .inline-textarea').forEach(el => el.remove());
+        }
+
+        async function updateTripInSheet(trip) {
+            if (isBusy) return;
+            isBusy = true;
+            showToast('Mensinkronkan perubahan ke Sheet...', 'info', 0);
+            
+            try {
+                await executeWriteWithVerification(
+                    'update',
+                    trip,
+                    (freshData) => {
+                        const found = freshData.find(r => String(r.id) === String(trip.id));
+                        return found && found.date === trip.date && found.user === trip.user && found.type === trip.type && found.notes === (trip.notes || '');
+                    }
+                );
+                showToast('Tersimpan & Terverifikasi di Sheet', 'success', 2500);
+            } catch (error) {
+                console.error('Gagal update:', error);
+                showToast('Gagal menyimpan ke Sheet: ' + error.message, 'error', 4000);
+            } finally {
+                isBusy = false;
+            }
+        }
+
+        function editDate(event, tripId) {
+            if (isBusy) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            const cell = event.currentTarget;
+            const trip = trips.find(t => String(t.id) === String(tripId));
+            if (!trip) return;
+
+            const input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'inline-input';
+            input.value = trip.date;
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            
+            let saved = false;
+            const save = async () => {
+                if (saved) return;
+                saved = true;
+                const newDate = input.value;
+                if (newDate && newDate !== trip.date) {
+                    const updated = Object.assign({}, trip, { date: newDate });
+                    await updateTripInSheet(updated);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            input.addEventListener('blur', () => setTimeout(save, 150));
+            input.addEventListener('change', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+                if (e.key === 'Escape') { saved = true; renderDashboard(); }
+            });
+        }
+
+        function editUser(event, tripId) {
+            if (isBusy) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            const cell = event.currentTarget;
+            const trip = trips.find(t => String(t.id) === String(tripId));
+            if (!trip) return;
+
+            const select = document.createElement('select');
+            select.className = 'inline-select';
+            select.innerHTML = '<option value=\"Saya\"' + (trip.user === 'Saya' ? ' selected' : '') + '>Saya</option><option value=\"Istri\"' + (trip.user === 'Istri' ? ' selected' : '') + '>Istri</option>';
+            cell.innerHTML = '';
+            cell.appendChild(select);
+            select.focus();
+            
+            let saved = false;
+            const save = async () => {
+                if (saved) return;
+                saved = true;
+                const newUser = select.value;
+                if (newUser !== trip.user) {
+                    const updated = Object.assign({}, trip, { user: newUser });
+                    await updateTripInSheet(updated);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            select.addEventListener('change', save);
+            select.addEventListener('blur', () => setTimeout(save, 150));
+        }
+
+        function editType(event, tripId) {
+            if (isBusy) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            const cell = event.currentTarget;
+            const trip = trips.find(t => String(t.id) === String(tripId));
+            if (!trip) return;
+
+            const select = document.createElement('select');
+            select.className = 'inline-select';
+            select.innerHTML = '<option value=\"Pagi\"' + (trip.type === 'Pagi' ? ' selected' : '') + '>Pagi</option><option value=\"Sore\"' + (trip.type === 'Sore' ? ' selected' : '') + '>Sore</option>';
+            cell.innerHTML = '';
+            cell.appendChild(select);
+            select.focus();
+            
+            let saved = false;
+            const save = async () => {
+                if (saved) return;
+                saved = true;
+                const newType = select.value;
+                if (newType !== trip.type) {
+                    const updated = Object.assign({}, trip, { type: newType });
+                    await updateTripInSheet(updated);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            select.addEventListener('change', save);
+            select.addEventListener('blur', () => setTimeout(save, 150));
+        }
+
+        function editNotes(event, tripId) {
+            if (isBusy) return;
+            event.stopPropagation();
+            removeExistingInlineEdit();
+            
+            const cell = event.currentTarget;
+            const trip = trips.find(t => String(t.id) === String(tripId));
+            if (!trip) return;
+            
+            const textarea = document.createElement('textarea');
+            textarea.className = 'inline-textarea';
+            textarea.placeholder = 'Tulis catatan (Enter untuk simpan)...';
+            textarea.value = trip.notes || '';
+            
+            cell.innerHTML = '';
+            cell.appendChild(textarea);
+            textarea.focus();
+            
+            let saved = false;
+            const save = async () => {
+                if (saved) return;
+                saved = true;
+                const newNotes = textarea.value.trim();
+                if (newNotes !== (trip.notes || '')) {
+                    const updated = Object.assign({}, trip, { notes: newNotes });
+                    await updateTripInSheet(updated);
+                } else {
+                    renderDashboard();
+                }
+            };
+            
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    save();
+                }
+                if (e.key === 'Escape') {
+                    saved = true;
+                    renderDashboard();
+                }
+            });
+            
+            textarea.addEventListener('blur', () => {
+                setTimeout(() => { if (!saved) save(); }, 200);
+            });
+        }
+
+        function renderTable(filtered) {
+            const tbody = document.getElementById('tableBody');
+            const sorted = filtered.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (sorted.length === 0) {
+                tbody.innerHTML = '<tr><td colspan=\"6\" class=\"px-6 py-8 text-center text-stone-500 text-sm\">Tidak ada data perjalanan pada periode ini.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = sorted.map(t => {
+                const userInitial = t.user === 'Saya' ? 'S' : 'I';
+                const userBg = t.user === 'Saya' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600';
+                const typeIcon = t.type === 'Pagi' ? 'sunrise' : 'sunset';
+                const typeColor = t.type === 'Pagi' ? 'text-amber-600 bg-amber-50' : 'text-indigo-600 bg-indigo-50';
+                const routeText = t.type === 'Pagi' ? 'Rumah → Halte' : 'Halte → Rumah';
+                const notesDisplay = t.notes ? t.notes : 'Tambah catatan...';
+                const notesTitle = (t.notes || 'Klik untuk tambah catatan').replace(/"/g, '&quot;');
+                const safeId = String(t.id).replace(/'/g, "\\'");
+
+                return '<tr class=\"hover:bg-stone-50 transition-colors\">' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
+                        '<div class=\"editable-cell flex items-center gap-1.5 px-2 py-1 w-fit\" onclick=\"editDate(event, \\\'' + safeId + '\\\')\">' +
+                            '<span class=\"font-medium text-stone-800 text-xs lg:text-sm whitespace-nowrap\">' + formatDate(t.date) + '</span>' +
+                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
+                        '<div class=\"user-cell flex items-center gap-2 px-2 py-1 w-fit\" onclick=\"editUser(event, \\\'' + safeId + '\\\')\">' +
+                            '<div class=\"w-6 h-6 rounded-full ' + userBg + ' flex items-center justify-center text-xs font-bold flex-shrink-0\">' + userInitial + '</div>' +
+                            '<span class=\"font-medium text-stone-700 text-xs lg:text-sm\">' + t.user + '</span>' +
+                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
+                        '<div class=\"editable-cell flex items-center gap-1.5 px-2 py-1 w-fit\" onclick=\"editType(event, \\\'' + safeId + '\\\')\">' +
+                            '<span class=\"flex items-center gap-1.5 ' + typeColor + ' px-2 py-1 rounded-full text-xs font-medium w-fit whitespace-nowrap\">' +
+                                '<i data-lucide=\"' + typeIcon + '\" class=\"w-3 h-3\"></i> ' + t.type +
+                            '</span>' +
+                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 flex-shrink-0\"></i>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4\">' +
+                        '<span class=\"inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200 whitespace-nowrap\">' +
+                            '<i data-lucide=\"arrow-right\" class=\"w-3 h-3\"></i> ' + routeText +
+                        '</span>' +
+                    '</td>' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 relative\">' +
+                        '<div class=\"editable-cell px-2 py-1 w-full\" onclick=\"editNotes(event, \\\'' + safeId + '\\\')\">' +
+                            '<span class=\"text-xs text-stone-500 italic block truncate max-w-[120px] lg:max-w-[150px]\" title=\"' + notesTitle + '\">' + notesDisplay + '</span>' +
+                            '<i data-lucide=\"pencil\" class=\"edit-icon w-3 h-3 text-stone-400 absolute top-1/2 right-2 transform -translate-y-1/2\"></i>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class=\"px-4 lg:px-6 py-3 lg:py-4 text-right\">' +
+                        '<button onclick=\"deleteTrip(\\\'' + safeId + '\\\')\" class=\"text-stone-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50\" title=\"Hapus\">' +
+                            '<i data-lucide=\"trash-2\" class=\"w-4 h-4\"></i>' +
+                        '</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        document.getElementById('tripForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (isBusy) return;
+            isBusy = true;
+            
+            const btn = document.getElementById('btnSubmit');
+            const btnCancel = document.getElementById('btnCancelModal');
+            const originalBtnHtml = btn.innerHTML;
+            btn.disabled = true;
+            btnCancel.disabled = true;
+            btn.innerHTML = '<div class=\"loader\" style=\"width:16px; height:16px; border-width:2px; border-top-color:white;\"></div><span>Menyimpan ke Sheet...</span>';
+            showToast('Mensinkronkan ke Google Sheet...', 'info', 0);
+
+            const newId = String(Date.now());
+            const newTrip = {
+                id: newId,
+                date: document.getElementById('inputDate').value,
+                user: document.getElementById('inputUser').value,
+                type: document.getElementById('inputType').value,
+                notes: document.getElementById('inputNotes').value.trim()
+            };
+
+            try {
+                await executeWriteWithVerification(
+                    'add',
+                    newTrip,
+                    (freshData) => freshData.some(r => String(r.id) === newId)
+                );
+                showToast('Perjalanan berhasil disimpan & diverifikasi!', 'success', 3000);
+                closeModal();
+                this.reset();
+                document.getElementById('inputDate').value = toLocalYMD(new Date());
+            } catch (err) {
+                console.error('Add trip error:', err);
+                showToast('Gagal menyimpan ke Sheet setelah 2x percobaan: ' + err.message, 'error', 5000);
+            } finally {
+                btn.disabled = false;
+                btnCancel.disabled = false;
+                btn.innerHTML = originalBtnHtml;
+                isBusy = false;
+            }
+        });
+
+        async function deleteTrip(id) {
+            if (isBusy) return;
+            if (!confirm('Hapus data perjalanan ini?')) return;
+            isBusy = true;
+            showToast('Menghapus dari Google Sheet...', 'info', 0);
+
+            try {
+                await executeWriteWithVerification(
+                    'delete',
+                    { id: String(id) },
+                    (freshData) => !freshData.some(r => String(r.id) === String(id))
+                );
+                showToast('Data berhasil dihapus dari Sheet!', 'success', 2500);
+            } catch (err) {
+                console.error('Delete trip error:', err);
+                showToast('Gagal menghapus dari Sheet: ' + err.message, 'error', 4000);
+            } finally {
+                isBusy = false;
+            }
+        }
+
+        function sendToWhatsApp() {
+            const filtered = trips.filter(t => t.date >= currentPeriod.start && t.date <= currentPeriod.end);
+            if (filtered.length === 0) {
+                showToast('Tidak ada data untuk periode ini', 'error');
+                return;
+            }
+            const totalTrips = filtered.length;
+            const pagiTrips = filtered.filter(t => t.type === 'Pagi').length;
+            const soreTrips = filtered.filter(t => t.type === 'Sore').length;
+            const totalBiaya = totalTrips * CONFIG.biayaPerTrip;
+            const text = 'Halo Pak, berikut rekap perjalanan periode *' + currentPeriod.fullLabel + '*:%0A%0A' +
+                         '📊 Total Perjalanan: *' + totalTrips + ' Trip*%0A' +
+                         '🌅 Antar Pagi: ' + pagiTrips + ' Trip%0A' +
+                         '🌇 Jemput Sore: ' + soreTrips + ' Trip%0A' +
+                         '💰 Total Biaya: *Rp ' + totalBiaya.toLocaleString('id-ID') + '*%0A%0A' +
+                         'Mohon dicek ya, Pak. Terima kasih! 🙏';
+            window.open('https://wa.me/?text=' + text, '_blank');
+        }
+
+        function openModal() {
+            const modal = document.getElementById('inputModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const content = document.getElementById('modalContent');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            backdrop.classList.remove('opacity-0');
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('inputModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const content = document.getElementById('modalContent');
+            backdrop.classList.add('opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            if (isClosed) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const parts = String(dateString).split('-');
+            if (parts.length === 3) {
+                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            }
+            return dateString;
+        }
+    </script>
+</body>
+</html>
